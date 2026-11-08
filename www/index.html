@@ -1053,7 +1053,12 @@ function settings(){
   const SW = '<span class="sw4">' + ['jobs','duties','gear','coll'].map(k=>`<i style="background:var(--c-${k})"></i>`).join('') + '</span>';
   return `${topbar('Settings',true)}
     <div class="setsec"><h3>Character</h3>${S.chars.map((c,i)=>`<button class="pal" data-char="${i}" aria-pressed="${S.char===i}"><span><b>${esc(c)}</b><br><span class="sub">${i===S.char?'Active · progress shown in the app':'Tap to switch'}</span></span></button>`).join('')}
-      <button class="ghost" style="display:block;width:100%;margin-top:8px" data-addchar>+ Add a character</button><p class="sample">Each character keeps its own story position, ticks, goals and timers.</p></div>
+      <button class="ghost" style="display:block;width:100%;margin-top:8px" data-addchar>+ Add a character</button><p class="sample">Each character keeps its own story position, ticks, goals and timers.</p>
+      <div style="margin-top:14px"><b>Lodestone</b>
+        <p class="sub" style="margin:2px 0 8px">Paste ${esc(S.chars[S.char])}'s Lodestone page link to import job levels, achievements, mounts, minions, facewear and emotes. Importing only adds; it never unticks anything.</p>
+        <input class="search" id="lodeurl" type="url" inputmode="url" placeholder="https://na.finalfantasyxiv.com/lodestone/character/…" value="${esc(S.lode ? S.lode.url : '')}" aria-label="Lodestone character link">
+        <div class="btnrow"><button class="advance" data-lodeimport>Import from Lodestone</button></div>
+        ${S.lode && S.lode.at ? `<p class="sample">Last imported ${new Date(S.lode.at).toLocaleString([], {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'})}${S.lode.name?` · ${esc(S.lode.name)}`:''}</p>` : ''}</div></div>
     <div class="setsec"><h3>Spoilers: what to conceal</h3>
       ${sw('spoiler','Names','Locked things show as ???; sections you haven\'t reached show as ?????.')}
       ${sw('labels','Expansion and patch labels','No expansion tag, patch number or "steps ahead" count before something unlocks.')}
@@ -1428,6 +1433,8 @@ document.addEventListener('click', e => {
   if (ds.char){ switchChar(+ds.char); toast(`Switched to ${S.chars[S.char]}`); render(); return; }
   if ('addchar' in ds){ const nm = (window.prompt('Name for the new character', 'Alt ' + S.chars.length) || '').trim(); if (!nm) return; S.chars.push(nm); switchChar(S.chars.length-1); toast(`Added ${nm}, starting fresh`); render(); return; }
   if (ds.backup){ ds.backup==='export' ? exportBackup() : importBackup(); return; }
+  if ('lodeimport' in ds){ lodeImport(); return; }
+  if ('lodeundo' in ds){ if (LODE_UNDO){ applyProgress(LODE_UNDO); LODE_UNDO = null; GIDX = null; closeSheet(); render(); toast('Import undone'); } return; }
   if ('msqpick' in ds){ sheet('msq'); return; }
   if ('onboarddone' in ds){ S.onboard = false; render(); return; }
   if ('resetall' in ds){ if (!S.resetArm){ S.resetArm = true; toast('Tap Reset again to erase this character\'s progress'); setTimeout(()=>{ S.resetArm = false; }, 4000); return; }
@@ -1478,10 +1485,127 @@ document.addEventListener('input', e => {
   if (e.target.id==='q'){ S.q = e.target.value; const pos = e.target.selectionStart; render(); const q = document.getElementById('q'); if (q){ q.focus(); q.setSelectionRange(pos,pos); } }
 });
 document.addEventListener('keydown', e => { if (e.key==='Escape') closeSheet(); });
+/* ================= Lodestone import ================= */
+// Reads the public Lodestone pages straight from the phone (native HTTP, so no browser cross-site block).
+const LODE_UA_MOBILE = 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36';
+const LODE_UA_DESKTOP = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36';
+let LODE_UNDO = null, LODE_BUSY = false;
+const norm = t => String(t||'').toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'');
+const CLASS_TO_JOB = {gladiator:'PLD',marauder:'WAR',conjurer:'WHM',pugilist:'MNK',lancer:'DRG',rogue:'NIN',archer:'BRD',thaumaturge:'BLM',arcanist:'SMN'};
+function parseLodeUrl(u){
+  const m = String(u||'').match(/(?:https?:\/\/)?(na|eu|fr|de|jp)\.finalfantasyxiv\.com\/lodestone\/character\/(\d+)/i) || String(u||'').match(/^\s*(\d{4,})\s*$/);
+  if (!m) return null; return m.length===3 ? {region:m[1].toLowerCase()==='jp'?'na':m[1].toLowerCase(), id:m[2]} : {region:'na', id:m[1]};
+}
+async function lodeGet(L, path, mobile=true){
+  const H = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.CapacitorHttp;
+  if (!H) throw {code:'web'};
+  const url = `https://${L.region==='fr'||L.region==='de'?'eu':L.region}.finalfantasyxiv.com/lodestone/character/${L.id}/${path}`;
+  const r = await H.get({url, headers:{'User-Agent': mobile ? LODE_UA_MOBILE : LODE_UA_DESKTOP, 'Accept-Language':'en-US,en;q=0.9'}, responseType:'text', connectTimeout:15000, readTimeout:20000});
+  if (r.status===404) return null;
+  if (r.status===403) throw {code:'private', path};
+  if (r.status===429 || r.status>=500) throw {code:'busy', status:r.status};
+  if (r.status>=400) throw {code:'http', status:r.status};
+  await new Promise(res => setTimeout(res, 350));   // be gentle with the Lodestone
+  return new DOMParser().parseFromString(typeof r.data==='string' ? r.data : String(r.data), 'text/html');
+}
+function lodeSheet(lines, done, summary){
+  const L = document.getElementById('layer'); S.sheetOpen = 'lode';
+  L.innerHTML = `<div class="scrim" ${done?'data-close':''}></div><div class="sheet noanim" role="dialog" aria-label="Lodestone import"><div class="grab"></div><h3>Lodestone import</h3>
+    <div class="card" style="padding:4px 0">${lines.map(([t,st])=>`<div class="tm"><span><b>${esc(t)}</b></span><span class="cd ${st==='done'?'ready':''}">${esc(st)}</span></div>`).join('')}</div>
+    ${summary ? `<p style="margin:12px 0 0">${summary}</p>` : ''}
+    ${done ? `<div class="btnrow">${LODE_UNDO?'<button class="ghost" data-lodeundo>Undo import</button>':''}<button class="advance" data-close>Done</button></div>` : '<p class="sample">This takes about half a minute. Keep the app open.</p>'}</div>`;
+}
+async function lodeImport(){
+  if (LODE_BUSY) return;
+  const inp = document.getElementById('lodeurl'); const raw = inp ? inp.value : (S.lode && S.lode.url);
+  const L = parseLodeUrl(raw);
+  if (!L){ toast('Paste the link to your Lodestone character page first'); return; }
+  if (!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform())){ toast('Lodestone import works in the Android app'); return; }
+  S.lode = {...(S.lode||{}), url: raw.trim(), id: L.id, region: L.region};
+  LODE_BUSY = true; const before = progressSnap(); const prevMsq = S.msq;
+  const steps = [['Profile','waiting'],['Job levels','waiting'],['Mounts','waiting'],['Minions','waiting'],['Facewear','waiting'],['Emotes','waiting'],['Achievements','waiting']];
+  const set = (i, st) => { steps[i][1] = st; lodeSheet(steps, false); };
+  const res = {jobs:0, mounts:0, minions:0, face:0, emotes:0, ach:0, quests:0, duties:0, soc:0, hidden:[]};
+  const collIndex = cat => { const m = new Map(); (COLLDATA[cat]||[]).forEach(([,ms]) => ms.forEach(x => m.set(norm(x[0]), x[0]))); return m; };
+  const addOwn = (names, cat, key) => { const idx = collIndex(cat); names.forEach(n => { const c = idx.get(norm(n)); if (c && !OWN.has(c)){ OWN.add(c); res[key]++; } }); };
+  let msqTo = S.msq; const bump = id => { const i = mIdx(id); if (i > msqTo) msqTo = i; };
+  try {
+    // profile: name, world, Grand Company rank
+    set(0,'reading');
+    const prof = await lodeGet(L, '', false);
+    if (!prof){ throw {code:'notfound'}; }
+    const nm = prof.querySelector('.frame__chara__name'); if (nm) S.lode.name = nm.textContent.trim();
+    const wd = prof.querySelector('.frame__chara__world'); if (wd) S.lode.world = wd.textContent.trim();
+    prof.querySelectorAll('.character-block').forEach(b => { const t = (b.querySelector('.character-block__title')||{}).textContent||'';
+      if (/grand company/i.test(t)){ const v = ((b.querySelector('.character-block__name')||{}).textContent||'').split('/').pop().trim();
+        const strip = x => norm(String(x).replace(/^\S+\s+/,'')); const i = DATA.GCR.findIndex(r => strip(r)===strip(v)); if (i>=0 && i+1 > (LAD.gc||0)) LAD.gc = i+1; } });
+    set(0,'done');
+    // job levels
+    set(1,'reading');
+    const cj = await lodeGet(L, 'class_job/', false);
+    if (cj){
+      const byName = {}; JOBS.forEach(([,js]) => js.forEach(j => byName[norm(j[1])] = j[0])); Object.entries(JN).forEach(([a,n]) => byName[norm(n)] = a);
+      Object.entries(CLASS_TO_JOB).forEach(([c,a]) => byName[c] = a);
+      cj.querySelectorAll('.character__job li').forEach(li => {
+        const nmEl = li.querySelector('.character__job__name'); if (!nmEl) return;
+        const names = [nmEl.textContent, nmEl.getAttribute('data-tooltip')||''].join('/').split('/').map(norm).filter(Boolean);
+        const lv = parseInt((li.querySelector('.character__job__level')||{}).textContent, 10) || 0; if (!lv) return;
+        if (names.includes('bluemage')){ if (lv > (N.blu||0)){ N.blu = lv; res.jobs++; } return; }
+        if (names.includes('beastmaster')){ if (lv > (N.bst||0)){ N.bst = lv; res.jobs++; } return; }
+        const ab = names.map(n => byName[n]).find(Boolean); if (!ab) return;
+        if (CLV[ab] != null){ if (lv > CLV[ab]){ CLV[ab] = lv; res.jobs++; } return; }
+        JOBS.forEach(([,js]) => js.forEach(j => { if (j[0]===ab && lv > j[2]){ j[2] = lv; res.jobs++; } }));
+      });
+    }
+    set(1,'done');
+    // collections shown on the Lodestone
+    const lists = [[2,'mount/','.mount__name','Mounts','mounts'],[3,'minion/','.minion__name','Minions','minions'],[4,'faceaccessory/','.faceaccessory__name','Facewear','face'],[5,'emote/','.emote__name','Emotes','emotes']];
+    for (const [i,path,sel,cat,key] of lists){
+      set(i,'reading');
+      try { const doc = await lodeGet(L, path); const names = doc ? [...doc.querySelectorAll(sel)].map(e=>e.textContent.trim()) : [];
+        if (doc && !names.length && cat!=='Facewear' && cat!=='Emotes') res.hidden.push(cat);
+        addOwn(names, cat, key); set(i,'done'); }
+      catch(e){ if (e.code==='private'){ res.hidden.push(cat); set(i,'private'); } else throw e; }
+    }
+    // achievements, one page per kind; each achievement can also prove story progress, clears and reputation
+    set(6,'reading');
+    try {
+      const got = new Set();
+      for (const k of DATA.LKINDS){
+        const doc = await lodeGet(L, `achievement/kind/${k}/`);
+        if (doc) doc.querySelectorAll('.entry__achievement--complete').forEach(a => { const m = (a.getAttribute('href')||'').match(/(\d+)\/?$/); if (m) got.add(m[1]); });
+        set(6, `${got.size} found`);
+      }
+      got.forEach(id => {
+        const n = DATA.ACHN[id]; if (n && !OWN.has(n)){ OWN.add(n); res.ach++; }
+        const l = DATA.ACHL[id]; if (!l) return;
+        if (l[0]==='m') bump(l[1]);
+        else if (l[0]==='q' && Q[l[1]]){ const q = Q[l[1]]; if (!q.done){ q.done = true; q.at = QSEQ++; res.quests++; } if (q.msq) bump(q.msq); }
+        else if (l[0]==='d'){ const d = DUTIES.find(x=>x.id===l[1]); if (d){ if (!d.turns && !d.done){ d.done = true; res.duties++; } if (d.msq) bump(d.msq); } }
+        else if (l[0]==='soc' && (LAD[l[1]]||0) < l[2]){ LAD[l[1]] = l[2]; res.soc++; }
+      });
+      set(6, got.size ? 'done' : 'none public');
+      if (!got.size) res.hidden.push('Achievements');
+    } catch(e){ if (e.code==='private'){ res.hidden.push('Achievements'); set(6,'private'); } else throw e; }
+    if (msqTo > S.msq){ S.msq = msqTo; S.onboard = false; }
+    S.lode.at = Date.now();
+    LODE_UNDO = before; GIDX = null; render();
+    const pl = (n, one, many) => n ? `${fmtN(n)} ${n===1?one:many}` : '';
+    const parts = [pl(res.mounts,'mount','mounts'), pl(res.minions,'minion','minions'), pl(res.face,'facewear','facewear'), pl(res.emotes,'emote','emotes'), pl(res.ach,'achievement','achievements'), pl(res.duties,'cleared duty','cleared duties'), pl(res.quests,'unlock quest','unlock quests'), pl(res.soc,'reputation rank','reputation ranks')].filter(Boolean);
+    const lvl = res.jobs ? `Raised ${pl(res.jobs,'job level','job levels')}. ` : '';
+    const story = S.msq > prevMsq ? ` Story moved forward to <b>${esc(MSQ[S.msq].n)}</b>.` : '';
+    const hid = res.hidden.length ? ` <span class="sub">Not visible on your Lodestone: ${res.hidden.join(', ')}. Check the Lodestone privacy settings if that's unexpected.</span>` : '';
+    lodeSheet(steps, true, (lvl || parts.length ? lvl + (parts.length ? `Added ${parts.join(', ')}.` : '') : 'Everything was already up to date.') + story + hid);
+  } catch(e){
+    LODE_UNDO = null; const keep = S.lode; applyProgress(before); S.lode = keep; render();
+    const why = e.code==='notfound' ? 'That character page wasn\'t found. Check the link.' : e.code==='private' ? 'That page is private on the Lodestone.' : e.code==='busy' ? 'The Lodestone is busy or down for maintenance. Try again later.' : e.code==='web' ? 'Lodestone import works in the Android app.' : 'Couldn\'t reach the Lodestone. Check your connection and try again.';
+    lodeSheet(steps, true, why);
+  } finally { LODE_BUSY = false; }
+}
 /* ================= saving ================= */
 const STORE = 'completionist-log.v1';
 const N_KEYS = Object.keys(N);
-const SKEYS = ['pins','notes','targets','custom','timers','past','recent','focus','lastSeenId'];
+const SKEYS = ['lode','pins','notes','targets','custom','timers','past','recent','focus','lastSeenId'];
 const GKEYS = ['theme','spoiler','labels','strict','h12','start','compact','quiet','hubOrder','catOrder','palette','foldAll'];
 const toArr = v => v instanceof Set ? {__set:[...v]} : v, fromArr = v => v && v.__set ? new Set(v.__set) : v;
 const clearObj = o => Object.keys(o).forEach(k => delete o[k]);
@@ -1507,7 +1631,7 @@ function applyProgress(p){
   DELIV.forEach(c => c.r = (p.deliv||{})[c.id] || 0);
   const s = p.s || {};
   S.pins = s.pins || []; S.notes = s.notes || {}; S.targets = s.targets || {}; S.custom = s.custom || []; S.recent = s.recent || [];
-  S.past = s.past || null; S.focus = s.focus || 'all';
+  S.past = s.past || null; S.focus = s.focus || 'all'; S.lode = s.lode || null;
   S.timers = s.timers || freshTimers();
   const ls = mIdx(s.lastSeenId); S.lastSeen = ls >= 0 ? ls : S.msq; S.newIds = [];
 }

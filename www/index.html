@@ -1800,7 +1800,7 @@ function gameImportPick(){
 }
 function gameImport(d){
   const before = progressSnap(), prevMsq = S.msq;
-  const res = {jobs:0, quests:0, side:0, duties:0, brackets:0, blu:0}; const own = {};
+  const res = {jobs:0, quests:0, side:0, duties:0, brackets:0, blu:0, explore:0, ranks:0, timers:0}; const own = {};
   const collIndex = cat => { const m = new Map(); (COLLDATA[cat]||[]).forEach(([,ms]) => ms.forEach(x => m.set(norm(x[0]), x[0]))); return m; };
   const addOwn = (names, cat) => { const idx = collIndex(cat); let n = 0; (names||[]).forEach(x => { const c = idx.get(norm(x)); if (c && !OWN.has(c)){ OWN.add(c); n++; } }); own[cat] = n; };
   let msqTo = S.msq; const bump = id => { const i = mIdx(id); if (i > msqTo) msqTo = i; };
@@ -1831,14 +1831,39 @@ function gameImport(d){
   addOwn(d.orchestrion, 'Orchestrion rolls'); addOwn(d.cards, 'Triple Triad cards'); addOwn(d.mounts, 'Mounts'); addOwn(d.minions, 'Minions');
   addOwn(d.emotes, 'Emotes'); addOwn(d.facewear, 'Facewear'); addOwn(d.accessories, 'Fashion accessories');
   (d.blu||[]).forEach(n => { const hit = BLU.find(b => norm(b)===norm(n)); if (hit && !C.has('blu:'+hit)){ C.add('blu:'+hit); res.blu++; } });
+  // gathering log brackets: done when every item in the bracket has been gathered
+  if (d.gathering){ const got = new Set(d.gathering.map(Number));
+    Object.entries(DATA.GLB).forEach(([job, perX]) => Object.entries(perX).forEach(([x, row]) => row.forEach((ids, i) => {
+      const k = `gather:${x}:${job}:${i}`; if (ids.length && ids.every(id => got.has(id)) && !C.has(k)){ C.add(k); res.brackets++; } }))); }
+  // exploration: aetherytes, sightseeing log, aether currents
+  if (d.exploration){ const E = d.exploration, ae = new Set((E.aetherytes||[]).map(Number)), vi = new Set((E.vistas||[]).map(Number));
+    const tick = k => { if (!C.has(k)){ C.add(k); res.explore++; } };
+    Object.entries(DATA.EXIDS).forEach(([zk, ids]) => { ids.ae.forEach(([id, n]) => { if (ae.has(id)) tick(`ex:${zk}:ae:${n}`); }); ids.v.forEach((id, i) => { if (vi.has(id)) tick(`ex:${zk}:v${i}`); }); });
+    Object.entries(E.currents||{}).forEach(([set, v]) => { const cs = DATA.CURSET[set]; if (!cs) return; const [zk, nField, qids] = cs, field = v[0], quests = v[2]||[];
+      for (let i = 0; i < Math.min(field, nField); i++) tick(`ex:${zk}:c${i}`);
+      const got = new Set(quests.map(Number)); qids.forEach((q, j) => { if (got.has(+q)) tick(`ex:${zk}:c${nField + j}`); }); }); }
+  // ranks: Grand Company, allied societies, Custom Deliveries (only ever raised)
+  if (d.ranks){ const Rk = d.ranks;
+    if (Rk.gc && Rk.gc > (LAD.gc||0)){ LAD.gc = Rk.gc; res.ranks++; }
+    Object.entries(Rk.societies||{}).forEach(([id, r]) => { const k = 'soc'+id; if (DATA.SOC.some(x=>x.id===k) && r > (LAD[k]||0)){ LAD[k] = r; res.ranks++; } });
+    (Rk.deliveries||[]).forEach((h, i) => { const c = DELIV[i]; if (c && h > (c.r||0)){ c.r = Math.min(5, h); res.ranks++; } }); }
+  // Timers: leve allowances right now, and each retainer's venture
+  if (d.timers){ const T = S.timers;
+    if (typeof d.timers.leves === 'number'){ T.leves.have = d.timers.leves; T.leves.setAt = Date.now(); res.timers++; }
+    const used = new Set();
+    (d.timers.retainers||[]).forEach(r => { let slot = T.retainers.find(x => norm(x.n)===norm(r.name));
+      if (!slot){ slot = T.retainers.find(x => /^Retainer \d+$/.test(x.n) && !used.has(x)); if (slot) slot.n = r.name; else { slot = {n:r.name, end:null, task:null, active:true, alarm:true}; T.retainers.push(slot); } }
+      used.add(slot); slot.active = true;
+      if (r.venture && r.complete){ slot.end = r.complete*1000; slot.task = slot.task || 'Venture'; } else { slot.end = null; slot.task = null; }
+      res.timers++; }); }
   if (msqTo > S.msq){ S.msq = msqTo; S.onboard = false; }
   if (S.pc) S.pc.at = Date.now();
   LODE_UNDO = before; GIDX = null; render();
   const pl = (n, one, many) => n ? `${fmtN(n)} ${n===1?one:many}` : '';
-  const parts = [pl(res.quests,'unlock quest','unlock quests'), pl(res.side,'side story or sidequest','side stories and sidequests'), pl(res.duties,'cleared duty','cleared duties'), pl(res.brackets,'crafting log bracket','crafting log brackets'), pl(res.blu,'Blue Magic spell','Blue Magic spells'),
+  const parts = [pl(res.quests,'unlock quest','unlock quests'), pl(res.side,'side story or sidequest','side stories and sidequests'), pl(res.duties,'cleared duty','cleared duties'), pl(res.brackets,'crafting or gathering log bracket','crafting and gathering log brackets'), pl(res.blu,'Blue Magic spell','Blue Magic spells'), pl(res.explore,'aetheryte, vista or aether current','aetherytes, vistas and aether currents'), pl(res.ranks,'rank raised','ranks raised'), res.timers ? 'Timers updated from your retainers and leve allowances' : '',
     ...Object.entries(own).map(([c,n]) => n ? `${fmtN(n)} ${n===1 ? ({'Orchestrion rolls':'orchestrion roll','Triple Triad cards':'Triple Triad card','Mounts':'mount','Minions':'minion','Emotes':'emote','Fashion accessories':'fashion accessory'}[c] || c.toLowerCase()) : (c==='Triple Triad cards' ? c : c.toLowerCase())}` : '')].filter(Boolean);
   const story = S.msq > prevMsq ? ` Story moved forward to <b>${esc(MSQ[S.msq].n)}</b>.` : '';
-  const CATN = {quests:'completed quests', duties:'cleared duties', recipes:'crafting log', jobs:'job levels', blu:'Blue Magic', orchestrion:'orchestrion rolls', cards:'Triple Triad cards', mounts:'mounts', minions:'minions', emotes:'emotes', facewear:'facewear', accessories:'fashion accessories'};
+  const CATN = {quests:'completed quests', duties:'cleared duties', recipes:'crafting log', jobs:'job levels', blu:'Blue Magic', orchestrion:'orchestrion rolls', cards:'Triple Triad cards', mounts:'mounts', minions:'minions', emotes:'emotes', facewear:'facewear', accessories:'fashion accessories', timers:'retainers and leve allowances', gathering:'gathering log', exploration:'aetherytes, vistas and currents', ranks:'ranks and reputation'};
   const off = Array.isArray(d.shared) ? Object.keys(CATN).filter(k => !d.shared.includes(k)).map(k => CATN[k]) : [];
   const offNote = off.length ? ` <span class="sub">Not shared by your PC (switched off in Progress Exporter): ${off.join(', ')}.</span>` : '';
   const when = d.at ? new Date(d.at).toLocaleString([], {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'}) : '';

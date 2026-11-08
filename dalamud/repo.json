@@ -5,7 +5,7 @@
     "InternalName": "ProgressExporter",
     "AssemblyVersion": "0.1.0.0",
     "Punchline": "Exports your unlocks and progress to a file for the Completionist Log app.",
-    "Description": "Type /progex to write one JSON file with completed quests, cleared duties, crafting log progress, job levels, Blue Magic spells, orchestrion rolls, Triple Triad cards, mounts, minions, emotes, facewear and fashion accessories. Read-only: nothing is changed in game and nothing is uploaded. Import the file in the Completionist Log app.",
+    "Description": "Type /progex to open it: pair with the app over Wi-Fi, choose what to share, or save one JSON file with completed quests, cleared duties, crafting log progress, job levels, Blue Magic spells, orchestrion rolls, Triple Triad cards, mounts, minions, emotes, facewear and fashion accessories. Read-only: nothing is changed in game and nothing is uploaded. Import the file in the Completionist Log app.",
     "ApplicableVersion": "any",
     "RepoUrl": "https://github.com/KevinJDexter/completionist-log",
     "Tags": [
@@ -20,6 +20,6 @@
     "DownloadLinkInstall": "https://github.com/KevinJDexter/completionist-log/releases/download/plugin-latest/latest.zip",
     "DownloadLinkUpdate": "https://github.com/KevinJDexter/completionist-log/releases/download/plugin-latest/latest.zip",
     "DownloadLinkTesting": "https://github.com/KevinJDexter/completionist-log/releases/download/plugin-latest/latest.zip",
-    "LastUpdate": 1794117069
+    "LastUpdate": 1794118475
   }
 ]

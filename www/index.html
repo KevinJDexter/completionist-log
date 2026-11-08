@@ -1590,7 +1590,7 @@ async function lodeImport(){
     }
     set(1,'done');
     // collections shown on the Lodestone
-    const lists = [[2,'mount/','.mount__name','Mounts','mounts'],[3,'minion/','.minion__name','Minions','minions'],[4,'faceaccessory/','.faceaccessory__name','Facewear','face'],[5,'emote/','.emote__name','Emotes','emotes']];
+    const lists = [[2,'mount/','.mount__name','Mounts','mounts'],[3,'minion/','.minion__name','Minions','minions'],[4,'faceaccessory/','.faceaccessory__name','Facewear','face'],[5,'emote/','.emote__name, ul.emote__list > li p','Emotes','emotes']];
     for (const [i,path,sel,cat,key] of lists){
       set(i,'reading');
       try { const doc = await lodeGet(L, path); const names = doc ? [...doc.querySelectorAll(sel)].map(e=>e.textContent.trim()) : [];
@@ -1705,13 +1705,17 @@ async function lodeOwnerPages(L, steps, set, res, addOwn, bump){
   const qdocs = await pages('quest/');
   if (!qdocs.length || !isOwnerView(qdocs[0])){ S.lode.signedIn = false; for (let i=base;i<steps.length;i++) set(i,'sign in again'); res.hidden.push('owner pages (sign in again in Settings)'); return; }
   const titles = new Set();
-  qdocs.forEach(doc => doc.querySelectorAll('li.entry__quest .entry__quest__name').forEach(nb => { const parts = [...nb.childNodes].map(x=>x.textContent.trim()).filter(t=>t && t!=='-'); const t = parts.length ? parts[parts.length-1] : nb.textContent.trim(); if (t) titles.add(norm(t)); }));
+  // each entry reads "<date><br>Category (Quest Name)": take the plain text after the date, then the name inside the category wrapper
+  let entries = 0;
+  qdocs.forEach(doc => doc.querySelectorAll('li.entry__quest .entry__quest__name').forEach(nb => { const pEl = nb.querySelector('p') || nb;
+    const txt = [...pEl.childNodes].filter(x => x.nodeType===3).map(x => x.textContent.trim()).filter(Boolean).pop() || ''; if (!txt) return; entries++;
+    titles.add(norm(txt)); const m = txt.match(/^[^(]*?\((.*)\)\s*$/); if (m) titles.add(norm(m[1])); }));
   MSQ.forEach((m,i) => { if (titles.has(norm(m.n))) bump(m.id); });
   Object.values(Q).forEach(q => { if (titles.has(norm(q.n)) && !q.done){ q.done = true; q.at = QSEQ++; res.qdone++; if (q.msq) bump(q.msq); } });
   Object.entries(DATA.ZQ).forEach(([zn,qs]) => qs.forEach((n,i) => { const k = `zs:${zn}:${i}`; if (titles.has(norm(n)) && !C.has(k)){ C.add(k); res.side++; } }));
   DATA.SIDE.forEach((z,si) => z[3].forEach((n,j) => { const k = `zq:s${si}:${j}`; if (titles.has(norm(n))) C.add(k); }));
   DATA.SERIES.forEach(sr => sr[4].forEach(([id,n]) => { const k = 'sq:'+id; if (titles.has(norm(n)) && !C.has(k)){ C.add(k); res.side++; } }));
-  set(base, `${fmtN(titles.size)} found`);
+  set(base, `${fmtN(entries)} found`);
   // orchestrion
   set(base+1, 'reading');
   const od = await lodeGet(L, 'orchestrion/', false);
@@ -1734,7 +1738,7 @@ async function lodeOwnerPages(L, steps, set, res, addOwn, bump){
   const td = await lodeGet(L, 'trust/', false);
   if (td) td.querySelectorAll('ul.trust__character > li').forEach(li => { const n = ((li.querySelector('.trust__character__name')||{}).textContent||'').trim(); const lv = parseInt((((li.querySelector('.trust__level')||{}).textContent||'').match(/\d+/)||[0])[0], 10);
     const i = DATA.TRUST.findIndex(t => norm(t)===norm(n)); if (i>=0 && lv > (N['trust'+i]||0)){ N['trust'+i] = lv; res.trust++; } });
-  set(base+4, 'done');
+  set(base+4, td ? 'done' : 'not on Lodestone');
 }
 async function lodeSignIn(){
   const H = LODE(); if (!H){ toast('Signing in works in the Android app'); return; }

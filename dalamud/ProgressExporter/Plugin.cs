@@ -40,6 +40,8 @@ public sealed unsafe class Plugin : IDalamudPlugin
         ("quests", "Completed quests"), ("duties", "Cleared duties"), ("recipes", "Crafting log"), ("jobs", "Job levels"),
         ("blu", "Blue Magic spells"), ("orchestrion", "Orchestrion rolls"), ("cards", "Triple Triad cards"), ("mounts", "Mounts"),
         ("minions", "Minions"), ("emotes", "Emotes"), ("facewear", "Facewear"), ("accessories", "Fashion accessories"),
+        ("timers", "Retainers and leve allowances"), ("gathering", "Gathering log"), ("exploration", "Aetherytes, vistas, currents"),
+        ("ranks", "Ranks and reputation"),
     };
     internal static string ExportDir => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Completionist Log");
 
@@ -141,6 +143,90 @@ public sealed unsafe class Plugin : IDalamudPlugin
         if (a == "wifi off") { SetWifi(false); Chat.Print("[Progress Exporter] Wi-Fi sync is off."); return; }
         if (a == "wifi on") { SetWifi(true); Chat.Print("[Progress Exporter] Wi-Fi sync is on."); return; }
         Chat.Print("[Progress Exporter] /progex opens the window. Also: /progex export, /progex pair, /progex newcode, /progex wifi on|off.");
+    }
+
+    // ---- second batch: timers, gathering log, exploration, ranks (each part fails on its own) ----
+    private void CollectMore(Dictionary<string, object> outp)
+    {
+        var ui = UIState.Instance();
+        var ps = FFXIVClientStructs.FFXIV.Client.Game.UI.PlayerState.Instance();
+
+        // retainers (known once you've used a summoning bell this session) and leve allowances
+        try
+        {
+            var timers = new Dictionary<string, object> { ["leves"] = (int)QuestManager.Instance()->NumLeveAllowances };
+            var rm = RetainerManager.Instance();
+            if (rm != null && rm->IsReady)
+            {
+                var list = new List<object>();
+                int n = rm->GetRetainerCount();
+                for (uint i = 0; i < n; i++)
+                {
+                    var r = rm->GetRetainerBySortedIndex(i);
+                    if (r == null || r->RetainerId == 0) continue;
+                    list.Add(new Dictionary<string, object> { ["name"] = r->NameString, ["venture"] = (int)r->VentureId, ["complete"] = (long)r->VentureComplete });
+                }
+                timers["retainers"] = list;
+            }
+            outp["timers"] = timers;
+        }
+        catch (Exception e) { Log.Warning(e, "timers"); }
+
+        // gathering log: gathered item ids
+        try
+        {
+            var gathered = new List<uint>();
+            foreach (var g in DataManager.GetExcelSheet<GatheringItem>())
+                if (g.RowId > 0 && g.RowId < ushort.MaxValue && QuestManager.IsGatheringItemGathered((ushort)g.RowId)) gathered.Add(g.RowId);
+            outp["gathering"] = gathered;
+        }
+        catch (Exception e) { Log.Warning(e, "gathering"); }
+
+        // exploration: attuned aetherytes, sightseeing log, aether currents per zone set
+        try
+        {
+            var ae = new List<uint>();
+            foreach (var a in DataManager.GetExcelSheet<Aetheryte>()) if (a.RowId > 0 && ui->IsAetheryteUnlocked(a.RowId)) ae.Add(a.RowId);
+            var vistas = new List<uint>();
+            uint first = 0; bool firstSet = false;
+            foreach (var v in DataManager.GetExcelSheet<Adventure>())
+            {
+                if (!firstSet) { first = v.RowId; firstSet = true; }
+                if (ps->IsAdventureComplete(v.RowId - first)) vistas.Add(v.RowId);
+            }
+            var sets = new Dictionary<string, object>();
+            foreach (var set in DataManager.GetExcelSheet<AetherCurrentCompFlgSet>())
+            {
+                int field = 0, fieldTotal = 0; var quests = new List<uint>();
+                foreach (var c in set.AetherCurrents)
+                {
+                    if (c.RowId == 0) continue;
+                    bool got = ps->IsAetherCurrentUnlocked(c.RowId);
+                    var qid = c.IsValid ? c.Value.Quest.RowId : 0;
+                    if (qid != 0) { if (got) quests.Add(qid); }
+                    else { fieldTotal++; if (got) field++; }
+                }
+                if (fieldTotal > 0 || quests.Count > 0) sets[set.RowId.ToString()] = new object[] { field, fieldTotal, quests };
+            }
+            outp["exploration"] = new Dictionary<string, object> { ["aetherytes"] = ae, ["vistas"] = vistas, ["currents"] = sets };
+        }
+        catch (Exception e) { Log.Warning(e, "exploration"); }
+
+        // ranks: Grand Company, allied societies, Custom Deliveries
+        try
+        {
+            var ranks = new Dictionary<string, object>();
+            var gc = PlayerState.GrandCompany;
+            if (gc.RowId != 0 && gc.IsValid) ranks["gc"] = (int)PlayerState.GetGrandCompanyRank(gc.Value);
+            var soc = new Dictionary<string, int>();
+            foreach (var t in DataManager.GetExcelSheet<BeastTribe>())
+                if (t.RowId > 0 && t.RowId < 255) { var rk = ps->GetBeastTribeRank((byte)t.RowId); if (rk > 0) soc[t.RowId.ToString()] = rk; }
+            ranks["societies"] = soc;
+            var sat = SatisfactionSupplyManager.Instance();
+            if (sat != null) { var hearts = new List<int>(); foreach (var h in sat->SatisfactionRanks) hearts.Add(h); ranks["deliveries"] = hearts; }
+            outp["ranks"] = ranks;
+        }
+        catch (Exception e) { Log.Warning(e, "ranks"); }
     }
 
     private static string Txt(Lumina.Text.ReadOnly.ReadOnlySeString s) => s.ExtractText().Trim();
@@ -258,6 +344,7 @@ public sealed unsafe class Plugin : IDalamudPlugin
             if (act.UnlockLink.RowId != 0 && ui->IsUnlockLinkUnlockedOrQuestCompleted(act.UnlockLink.RowId)) Add(blu, act.Name);
         }
         outp["blu"] = blu;
+        CollectMore(outp);
         foreach (var (key, _) in Categories) if (!Config.Shares(key)) outp.Remove(key);
         return outp;
     }

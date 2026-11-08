@@ -1838,8 +1838,11 @@ function gameImport(d){
   const parts = [pl(res.quests,'unlock quest','unlock quests'), pl(res.side,'side story or sidequest','side stories and sidequests'), pl(res.duties,'cleared duty','cleared duties'), pl(res.brackets,'crafting log bracket','crafting log brackets'), pl(res.blu,'Blue Magic spell','Blue Magic spells'),
     ...Object.entries(own).map(([c,n]) => n ? `${fmtN(n)} ${n===1 ? ({'Orchestrion rolls':'orchestrion roll','Triple Triad cards':'Triple Triad card','Mounts':'mount','Minions':'minion','Emotes':'emote','Fashion accessories':'fashion accessory'}[c] || c.toLowerCase()) : (c==='Triple Triad cards' ? c : c.toLowerCase())}` : '')].filter(Boolean);
   const story = S.msq > prevMsq ? ` Story moved forward to <b>${esc(MSQ[S.msq].n)}</b>.` : '';
+  const CATN = {quests:'completed quests', duties:'cleared duties', recipes:'crafting log', jobs:'job levels', blu:'Blue Magic', orchestrion:'orchestrion rolls', cards:'Triple Triad cards', mounts:'mounts', minions:'minions', emotes:'emotes', facewear:'facewear', accessories:'fashion accessories'};
+  const off = Array.isArray(d.shared) ? Object.keys(CATN).filter(k => !d.shared.includes(k)).map(k => CATN[k]) : [];
+  const offNote = off.length ? ` <span class="sub">Not shared by your PC (switched off in Progress Exporter): ${off.join(', ')}.</span>` : '';
   const when = d.at ? new Date(d.at).toLocaleString([], {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'}) : '';
-  lodeSheet([['Your progress'+(when?` as of ${when}`:''), 'done']], true, (res.jobs ? `Raised ${pl(res.jobs,'job level','job levels')}. ` : '') + (parts.length ? `Added ${parts.join(', ')}.` : 'Everything was already up to date.') + story, 'Sync from game');
+  lodeSheet([['Your progress'+(when?` as of ${when}`:''), 'done']], true, (res.jobs ? `Raised ${pl(res.jobs,'job level','job levels')}. ` : '') + (parts.length ? `Added ${parts.join(', ')}.` : 'Everything was already up to date.') + story + offNote, 'Sync from game');
 }
 /* ================= saving ================= */
 const STORE = 'completionist-log.v1';

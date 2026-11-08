@@ -1092,8 +1092,12 @@ function settings(){
       <div class="btnrow"><button class="ghost" data-testnotif>Send a test alert</button></div></div>
     <div class="setsec"><h3>Your data</h3>
       <div class="btnrow"><button class="ghost" data-backup="export">Export backup</button><button class="ghost" data-backup="import">Import backup</button></div>
-      <div style="margin-top:12px"><b>From the game</b><p class="sub" style="margin:2px 0 8px">With the Progress Exporter plugin, type /progex in game, put the file on your phone, then import it here. Adds duty clears, crafting log progress, quests, Blue Magic and collections; never unticks anything.</p>
-        <div class="btnrow"><button class="ghost" data-gameimport>Import game export</button></div></div>
+      <div style="margin-top:12px"><b>From the game</b><p class="sub" style="margin:2px 0 8px">With the Progress Exporter plugin running in game, sync over your home Wi-Fi: duty clears, crafting log progress, quests, job levels, Blue Magic and collections. Syncing only adds; it never unticks anything.</p>
+        ${S.pc ? `<div class="panel" style="flex-direction:column;align-items:stretch;gap:6px"><span><b>Paired with your PC</b><br><span class="sub">${esc(S.pc.ip||'')}${S.pc.at?` · last synced ${new Date(S.pc.at).toLocaleString([], {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'})}`:''}</span></span>
+            <div class="btnrow"><button class="advance" data-pcsync>Sync from game</button><button class="ghost" data-pcunpair>Unpair</button></div></div>`
+          : `<input class="search" id="pccode" maxlength="8" autocapitalize="characters" placeholder="Pair code (type /progex pair in game)" aria-label="Pair code">
+            <div class="btnrow"><button class="advance" data-pcpair>Pair with your PC</button></div>`}
+        <div class="btnrow"><button class="ghost" data-gameimport>Import an export file instead</button></div></div>
       <p class="sample">Your progress is saved on this phone as you go. A backup file holds everything for every character, so you can move to another device or restore after a reset. Export one now and then.</p>
       <div class="btnrow"><button class="ghost" data-resetall style="color:var(--warn)">${S.resetArm?'Tap again to reset':'Reset this character'}</button></div></div>`;
 }
@@ -1458,6 +1462,9 @@ document.addEventListener('click', e => {
   if ('lodereport' in ds){ const rep = {app:'completionist-log', version:'sync report', at:new Date().toISOString(), signedIn:!!(S.lode&&S.lode.signedIn), pages:LODE_LOG};
     shareFile('completionist-log-sync-report.json', JSON.stringify(rep, null, 1), 'Lodestone sync report').catch(()=>toast('Couldn\'t create the report')); return; }
   if ('gameimport' in ds){ gameImportPick(); return; }
+  if ('pcpair' in ds){ pcPair(); return; }
+  if ('pcsync' in ds){ pcSync(); return; }
+  if ('pcunpair' in ds){ S.pc = null; render(); toast('Unpaired'); return; }
   if ('lodesignin' in ds){ lodeSignIn(); return; }
   if ('lodesignout' in ds){ const H = LODE(); if (H) H.signOut().then(()=>{ S.lode.signedIn = false; render(); toast('Signed out of the Lodestone'); }); return; }
   if ('lodeedit' in ds){ S.lodeEdit = !S.lodeEdit; render(); return; }
@@ -1542,12 +1549,12 @@ async function lodeGet(L, path, mobile=true){
   await new Promise(res => setTimeout(res, 350));   // be gentle with the Lodestone
   return new DOMParser().parseFromString(typeof r.data==='string' ? r.data : String(r.data), 'text/html');
 }
-function lodeSheet(lines, done, summary){
+function lodeSheet(lines, done, summary, title='Lodestone import'){
   const L = document.getElementById('layer'); S.sheetOpen = 'lode';
-  L.innerHTML = `<div class="scrim" ${done?'data-close':''}></div><div class="sheet noanim" role="dialog" aria-label="Lodestone import"><div class="grab"></div><h3>Lodestone import</h3>
+  L.innerHTML = `<div class="scrim" ${done?'data-close':''}></div><div class="sheet noanim" role="dialog" aria-label="${esc(title)}"><div class="grab"></div><h3>${esc(title)}</h3>
     <div class="card" style="padding:4px 0">${lines.map(([t,st])=>`<div class="tm"><span><b>${esc(t)}</b></span><span class="cd ${st==='done'?'ready':''}">${esc(st)}</span></div>`).join('')}</div>
     ${summary ? `<p style="margin:12px 0 0">${summary}</p>` : ''}
-    ${done ? `<div class="btnrow">${LODE_UNDO?'<button class="ghost" data-lodeundo>Undo import</button>':''}<button class="advance" data-close>Done</button></div><button class="link" data-lodereport style="margin-top:10px">Share a sync report</button>` : '<p class="sample">This can take a minute or two. Keep the app open.</p>'}</div>`;
+    ${done ? `<div class="btnrow">${LODE_UNDO?'<button class="ghost" data-lodeundo>Undo import</button>':''}<button class="advance" data-close>Done</button></div>${title==='Lodestone import'?'<button class="link" data-lodereport style="margin-top:10px">Share a sync report</button>':''}` : '<p class="sample">This can take a minute or two. Keep the app open.</p>'}</div>`;
 }
 async function lodeImport(){
   if (LODE_BUSY) return;
@@ -1752,6 +1759,37 @@ async function lodeSignIn(){
   catch(e){ toast('Couldn\'t check the sign-in. Try again'); }
 }
 /* ================= game export (Dalamud exporter) ================= */
+// Wi-Fi sync with the Progress Exporter plugin on your PC
+async function pcFind(code){
+  const H = LODE(); if (!H) throw {msg:'Wi-Fi sync works in the Android app'};
+  const tries = [];
+  if (S.pc && S.pc.ip) tries.push({ip:S.pc.ip, port:S.pc.port||47823});
+  const ping = async t => { try { const r = await H.getLocal({ip:t.ip, port:t.port, path:'/ping', code}); return r.status; } catch(e){ return 0; } };
+  for (const t of tries){ const st = await ping(t); if (st===200) return t; if (st===401) throw {msg:'The pair code doesn\'t match. Type /progex pair in game to see it.'}; }
+  let found = null; try { found = await H.discover({port:47823}); } catch(e){}
+  if (found && found.ip){ const st = await ping(found); if (st===200) return found; if (st===401) throw {msg:'The pair code doesn\'t match. Type /progex pair in game to see it.'}; }
+  throw {msg:'Couldn\'t find your PC. Check the game is running with Progress Exporter and your phone is on the same Wi-Fi.'};
+}
+async function pcPair(){
+  const inp = document.getElementById('pccode'); const code = (inp ? inp.value : '').replace(/[^a-z0-9]/gi,'').toUpperCase();
+  if (code.length < 6){ toast('Enter the 6-character code from /progex pair'); return; }
+  lodeSheet([['Looking for your PC','reading']], false, '', 'Pair with your PC');
+  try { const t = await pcFind(code); S.pc = {code, ip:t.ip, port:t.port}; closeSheet(); render(); toast('Paired with your PC'); }
+  catch(e){ lodeSheet([['Looking for your PC','not found']], true, esc(e.msg || 'Something went wrong'), 'Pair with your PC'); }
+}
+async function pcSync(){
+  if (!S.pc) return;
+  lodeSheet([['Finding your PC','reading'],['Reading your progress','waiting']], false, '', 'Sync from game');
+  try {
+    const t = await pcFind(S.pc.code); S.pc = {...S.pc, ip:t.ip, port:t.port};
+    lodeSheet([['Finding your PC','done'],['Reading your progress','reading']], false, '', 'Sync from game');
+    const r = await LODE().getLocal({ip:t.ip, port:t.port, path:'/export', code:S.pc.code});
+    if (r.status===409) throw {msg:'Log in to a character in game first, then sync again.'};
+    if (r.status!==200) throw {msg:`Your PC answered with an error (${r.status}).`};
+    const d = JSON.parse(r.data); if (d.app!=='completionist-log-game') throw {msg:'Unexpected answer from your PC.'};
+    gameImport(d);
+  } catch(e){ lodeSheet([['Sync from game','failed']], true, esc(e.msg || 'Couldn\'t reach your PC.'), 'Sync from game'); }
+}
 function gameImportPick(){
   const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'application/json,.json';
   inp.onchange = async () => { const f = inp.files[0]; if (!f) return;
@@ -1794,19 +1832,20 @@ function gameImport(d){
   addOwn(d.emotes, 'Emotes'); addOwn(d.facewear, 'Facewear'); addOwn(d.accessories, 'Fashion accessories');
   (d.blu||[]).forEach(n => { const hit = BLU.find(b => norm(b)===norm(n)); if (hit && !C.has('blu:'+hit)){ C.add('blu:'+hit); res.blu++; } });
   if (msqTo > S.msq){ S.msq = msqTo; S.onboard = false; }
+  if (S.pc) S.pc.at = Date.now();
   LODE_UNDO = before; GIDX = null; render();
   const pl = (n, one, many) => n ? `${fmtN(n)} ${n===1?one:many}` : '';
   const parts = [pl(res.quests,'unlock quest','unlock quests'), pl(res.side,'side story or sidequest','side stories and sidequests'), pl(res.duties,'cleared duty','cleared duties'), pl(res.brackets,'crafting log bracket','crafting log brackets'), pl(res.blu,'Blue Magic spell','Blue Magic spells'),
-    ...Object.entries(own).map(([c,n]) => n ? `${fmtN(n)} ${c.toLowerCase()}` : '')].filter(Boolean);
+    ...Object.entries(own).map(([c,n]) => n ? `${fmtN(n)} ${n===1 ? ({'Orchestrion rolls':'orchestrion roll','Triple Triad cards':'Triple Triad card','Mounts':'mount','Minions':'minion','Emotes':'emote','Fashion accessories':'fashion accessory'}[c] || c.toLowerCase()) : (c==='Triple Triad cards' ? c : c.toLowerCase())}` : '')].filter(Boolean);
   const story = S.msq > prevMsq ? ` Story moved forward to <b>${esc(MSQ[S.msq].n)}</b>.` : '';
   const when = d.at ? new Date(d.at).toLocaleString([], {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'}) : '';
-  lodeSheet([['Game export'+(when?` from ${when}`:''), 'done']], true, (res.jobs ? `Raised ${pl(res.jobs,'job level','job levels')}. ` : '') + (parts.length ? `Added ${parts.join(', ')}.` : 'Everything was already up to date.') + story);
+  lodeSheet([['Your progress'+(when?` as of ${when}`:''), 'done']], true, (res.jobs ? `Raised ${pl(res.jobs,'job level','job levels')}. ` : '') + (parts.length ? `Added ${parts.join(', ')}.` : 'Everything was already up to date.') + story, 'Sync from game');
 }
 /* ================= saving ================= */
 const STORE = 'completionist-log.v1';
 const N_KEYS = Object.keys(N);
 const SKEYS = ['lode','pins','notes','targets','custom','timers','past','recent','focus','lastSeenId'];
-const GKEYS = ['theme','spoiler','labels','strict','h12','start','compact','quiet','hubOrder','catOrder','palette','foldAll'];
+const GKEYS = ['pc','theme','spoiler','labels','strict','h12','start','compact','quiet','hubOrder','catOrder','palette','foldAll'];
 const toArr = v => v instanceof Set ? {__set:[...v]} : v, fromArr = v => v && v.__set ? new Set(v.__set) : v;
 const clearObj = o => Object.keys(o).forEach(k => delete o[k]);
 function progressSnap(){

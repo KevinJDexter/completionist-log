@@ -25,4 +25,4 @@ Progress is stored on the device; use **Settings → Export backup** now and the
 `dalamud/` holds **Progress Exporter**, a read-only Dalamud plugin. In XIVLauncher: `/xlsettings` → Experimental → Custom Plugin Repositories, add
 `https://raw.githubusercontent.com/KevinJDexter/completionist-log/main/dalamud/repo.json`, save, then install it from `/xlplugins`.
 In game, `/progex` writes `Documents\Completionist Log\completionist-log-game-<date>.json` (add `name` to include your character name).
-Move the file to the phone and use **Settings → Import game export** in the app.
+Or skip the file: with the game running, `/progex pair` shows a pair code; enter it once in the app (**Settings → From the game → Pair with your PC**), then tap **Sync from game** whenever you're on the same Wi-Fi. The plugin answers only on your home network (TCP 47823, UDP 47824 for discovery) and only to requests carrying the pair code; `/progex newcode` changes it and `/progex wifi off` turns it off. Windows may ask once to allow the game through the firewall: allow it on private networks.

@@ -14,6 +14,10 @@ import com.getcapacitor.annotation.ActivityCallback;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
 import java.io.ByteArrayOutputStream;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
+import java.net.SocketTimeoutException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -96,5 +100,85 @@ public class LodestonePlugin extends Plugin {
             cm.flush();
             call.resolve();
         });
+    }
+
+    // ---- Wi-Fi sync with the Progress Exporter plugin on your PC ----
+
+    private static boolean isPrivateHost(String host) {
+        if (host == null) return false;
+        if (host.startsWith("10.") || host.startsWith("192.168.")) return true;
+        if (host.startsWith("172.")) {
+            try { int b = Integer.parseInt(host.split("\\.")[1]); return b >= 16 && b <= 31; } catch (Exception e) { return false; }
+        }
+        return false;
+    }
+
+    /** Broadcasts "PROGEX?" on the local network and returns the first PC that answers. */
+    @PluginMethod
+    public void discover(final PluginCall call) {
+        final int port = call.getInt("port", 47823);
+        new Thread(() -> {
+            try (DatagramSocket sock = new DatagramSocket()) {
+                sock.setBroadcast(true);
+                sock.setSoTimeout(1500);
+                byte[] msg = "PROGEX?".getBytes(StandardCharsets.US_ASCII);
+                for (int attempt = 0; attempt < 2; attempt++) {
+                    sock.send(new DatagramPacket(msg, msg.length, InetAddress.getByName("255.255.255.255"), port + 1));
+                    try {
+                        byte[] buf = new byte[64];
+                        DatagramPacket p = new DatagramPacket(buf, buf.length);
+                        sock.receive(p);
+                        String r = new String(p.getData(), 0, p.getLength(), StandardCharsets.US_ASCII).trim();
+                        if (r.startsWith("PROGEX!")) {
+                            JSObject ret = new JSObject();
+                            ret.put("ip", p.getAddress().getHostAddress());
+                            ret.put("port", Integer.parseInt(r.substring(7).trim()));
+                            call.resolve(ret);
+                            return;
+                        }
+                    } catch (SocketTimeoutException ignored) { }
+                }
+                call.resolve(new JSObject());
+            } catch (Exception e) {
+                call.reject("Discovery failed: " + e.getMessage());
+            }
+        }).start();
+    }
+
+    /** GET from the plugin on your PC (home network addresses only). */
+    @PluginMethod
+    public void getLocal(final PluginCall call) {
+        final String ip = call.getString("ip");
+        final int port = call.getInt("port", 47823);
+        final String path = call.getString("path", "/ping");
+        final String code = call.getString("code", "");
+        if (!isPrivateHost(ip)) { call.reject("Only home network addresses"); return; }
+        new Thread(() -> {
+            HttpURLConnection con = null;
+            try {
+                con = (HttpURLConnection) new URL("http://" + ip + ":" + port + path).openConnection();
+                con.setConnectTimeout(4000);
+                con.setReadTimeout(60000);
+                con.setRequestProperty("X-Progex-Code", code);
+                int status = con.getResponseCode();
+                InputStream in = status >= 400 ? con.getErrorStream() : con.getInputStream();
+                String body = "";
+                if (in != null) {
+                    ByteArrayOutputStream out = new ByteArrayOutputStream();
+                    byte[] buf = new byte[16384]; int n;
+                    while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+                    in.close();
+                    body = new String(out.toByteArray(), StandardCharsets.UTF_8);
+                }
+                JSObject ret = new JSObject();
+                ret.put("status", status);
+                ret.put("data", body);
+                call.resolve(ret);
+            } catch (Exception e) {
+                call.reject("Couldn't reach your PC: " + e.getMessage());
+            } finally {
+                if (con != null) con.disconnect();
+            }
+        }).start();
     }
 }

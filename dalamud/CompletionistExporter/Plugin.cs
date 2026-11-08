@@ -173,9 +173,6 @@ public sealed unsafe class Plugin : IDalamudPlugin
             if (g.Style.IsValid) Add(face, g.Style.Value.Name);
         }
         outp["facewear"] = face.Distinct().ToList();
-        var bardings = new List<string>();
-        foreach (var b in DataManager.GetExcelSheet<BuddyEquip>()) if (b.RowId > 0 && ui->Buddy.IsBuddyEquipUnlocked(b.RowId)) Add(bardings, b.Name);
-        outp["bardings"] = bardings;
         var acc = new List<string>();
         foreach (var o in DataManager.GetExcelSheet<Ornament>()) if (o.RowId > 0 && ps->IsOrnamentUnlocked(o.RowId)) Add(acc, o.Singular);
         outp["accessories"] = acc;

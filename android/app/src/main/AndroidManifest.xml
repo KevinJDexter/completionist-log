@@ -32,4 +32,6 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- on-time alerts for retainers, resets and reminders (granted automatically on Android 13+) -->
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
 </manifest>

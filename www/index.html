@@ -432,6 +432,10 @@ function nextUTC(h, dow){ const n = new Date(); const d = new Date(Date.UTC(n.ge
   if (dow === undefined){ if (d <= n) d.setUTCDate(d.getUTCDate()+1); return d; }
   while (d.getUTCDay() !== dow || d <= n) d.setUTCDate(d.getUTCDate()+1); return d; }
 const nextLeve = () => { const a = nextUTC(0), b = nextUTC(12); return a < b ? a : b; };
+// allowances you have right now: what you entered, plus 3 for every 00:00/12:00 UTC tick since then
+function leveNow(){ const L = S.timers.leves; if (!L.setAt) return L.have; const ticks = Math.floor(Date.now()/43200e3) - Math.floor(L.setAt/43200e3); return Math.min(100, L.have + 3*Math.max(0,ticks)); }
+// Custom Deliveries used this week (12 a week, shared); the count clears at the weekly reset
+function cdUsed(){ const c = S.timers.cd; if (!c) return 0; const wk = nextUTC(8,2).getTime(); return c.week === wk ? c.used : 0; }
 const TREQ = {'Duty roulettes':'arr0','Allied society quests':'arr2','Mini Cactpot':'arr0','Hunt bills':'arr0','Custom Deliveries':'sb-kug0','Wondrous Tails':'hw0','Faux Hollows':'ew0','Raid lockouts':'arr0','Leves':'arr0','Retainers':'arr0','Squadron':'arr4','Grand Company':'arr0'};
 const confirmRet = (r,i) => `<div class="confirm"><b>Remove ${esc(r.n)}?</b> Its name and any running venture timer will be deleted.<div class="btnrow"><button class="danger" data-delretok="${i}">Remove</button><button class="ghost" data-delretno>Keep</button></div></div>`;
 const DOW = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -1079,7 +1083,8 @@ function settings(){
     <div class="setsec"><h3>Notifications</h3>
       ${sw('on','Quiet hours','Nothing notifies you in this window; anything due waits until it ends.',S.quiet)}
       ${S.quiet.on?`<div class="field">From <input type="time" value="${S.quiet.from}" data-qt="from" aria-label="Quiet hours start"> to <input type="time" value="${S.quiet.to}" data-qt="to" aria-label="Quiet hours end"></div>`:''}
-      <p class="sample">Per-reset digest times live on the Timers tab.</p></div>
+      <p class="sample">Per-reset digest times live on the Timers tab.</p>
+      <div class="btnrow"><button class="ghost" data-testnotif>Send a test alert</button></div></div>
     <div class="setsec"><h3>Your data</h3>
       <div class="btnrow"><button class="ghost" data-backup="export">Export backup</button><button class="ghost" data-backup="import">Import backup</button></div>
       <p class="sample">Your progress is saved on this phone as you go. A backup file holds everything for every character, so you can move to another device or restore after a reset. Export one now and then.</p>
@@ -1150,7 +1155,7 @@ function goals(){
 function timers(){
   const T = S.timers, now = Date.now();
   const daily = nextUTC(15), weekly = nextUTC(8,2), gc = nextUTC(20), lv = nextLeve();
-  const ticks = Math.max(0, Math.ceil((T.leves.want - T.leves.have)/3));
+  const lvHave = leveNow(), ticks = Math.max(0, Math.ceil((T.leves.want - lvHave)/3));
   const leveAt = ticks ? new Date(lv.getTime() + (ticks-1)*12*3600e3) : null;
   const DAILY = ['Duty roulettes','Allied society quests','Mini Cactpot','Hunt bills'].filter(tOK), WEEKLY = ['Custom Deliveries','Wondrous Tails','Faux Hollows','Raid lockouts'].filter(tOK);
   const digest = (key,label,when,items) => { const g = T[key];
@@ -1167,14 +1172,14 @@ function timers(){
       <div class="opts">${r.end?`<button class="ghost" data-collect="${i}">${left<=0?'Collected':'Recalled early'}</button>`:''}${i>=2?`<button class="ghost" data-retact="${i}">Mark inactive</button>`:''}${S.armRet===i?'':`<button class="ghost" data-delret="${i}">Remove</button>`}</div>${S.armRet===i?confirmRet(r,i):''}</div>`; }).join('');
   const sq = T.squadron.end ? T.squadron.end-now : null;
   return `${topbar('Timers')}
-    <p class="sample" style="padding-top:0">Times shown in your time zone. Only features you've unlocked appear here; Faux Hollows, for example, shows up once your story reaches it. Notifications would come from the installed app.</p>
+    <p class="sample" style="padding-top:0">Times shown in your time zone. Only features you've unlocked appear here; Faux Hollows, for example, shows up once your story reaches it. Alerts arrive as phone notifications, even when the app is closed.</p>${notifBanner()}
     <h2 class="sh">Reset digests</h2><div class="card">${digest('dailyDigest','Daily reset',daily,DAILY)}${digest('weeklyDigest','Weekly reset',weekly,WEEKLY)}
       <div class="tm"><span><b>Grand Company supply</b><div class="sub">Resets ${fmtWhen(gc)} · in ${fmtLeft(gc-now)}</div></span><button class="bell" aria-pressed="${T.gc}" data-gc aria-label="Notify for Grand Company">${BELL(T.gc)}</button></div></div>
     <h2 class="sh">Allowances</h2><div class="card">
       <div class="tm"><span><b>Leve allowances</b><div class="sub">+3 every 12 hours, max 100 · next +3 ${fmtWhen(lv)}</div></span><button class="bell" aria-pressed="${T.leves.on}" data-leve aria-label="Notify for leves">${BELL(T.leves.on)}</button>
-        <div class="field">I have <input type="number" min="0" max="100" value="${T.leves.have}" data-lvh aria-label="Leves I have"> · notify at <input type="number" min="0" max="100" value="${T.leves.want}" data-lvw aria-label="Notify at"></div>
-        <div class="sub" style="grid-column:1/-1;margin-top:4px">${ticks?`Reaches ${Math.min(100,T.leves.have+ticks*3)} on <b style="color:var(--ink)">${fmtWhen(leveAt)}</b>`:'Already there'}</div></div>
-      ${tOK('Custom Deliveries')?`<div class="tm"><span><b>Custom Deliveries</b><div class="sub">12 a week, shared across clients · 10 left this week</div></span><button class="bell" aria-pressed="${T.weeklyDigest.items.includes('Custom Deliveries')}" data-digi="weeklyDigest|Custom Deliveries" aria-label="Include in weekly digest">${BELL(T.weeklyDigest.items.includes('Custom Deliveries'))}</button></div>`:''}</div>
+        <div class="field">I have <input type="number" min="0" max="100" value="${lvHave}" data-lvh aria-label="Leves I have"> · notify at <input type="number" min="0" max="100" value="${T.leves.want}" data-lvw aria-label="Notify at"></div>
+        <div class="sub" style="grid-column:1/-1;margin-top:4px">${ticks?`Reaches ${Math.min(100,lvHave+ticks*3)} on <b style="color:var(--ink)">${fmtWhen(leveAt)}</b>`:'Already there'}</div></div>
+      ${tOK('Custom Deliveries')?`<div class="tm"><span><b>Custom Deliveries</b><div class="sub">12 a week, shared across clients · ${12-cdUsed()} left this week</div><span class="stepper" style="margin-top:6px"><button class="sbtn" data-cd="-1" aria-label="One fewer used">−</button><span class="sval" style="cursor:default">${cdUsed()}</span><button class="sbtn" data-cd="1" aria-label="One more used">+</button></span> <span class="sub">used</span></span><button class="bell" aria-pressed="${T.weeklyDigest.items.includes('Custom Deliveries')}" data-digi="weeklyDigest|Custom Deliveries" aria-label="Include in weekly digest">${BELL(T.weeklyDigest.items.includes('Custom Deliveries'))}</button></div>`:''}</div>
     <h2 class="sh">Your reminders <span>${S.custom.length}</span></h2>
     ${S.custom.length?`<div class="card">${S.custom.map((c,i)=>{ const nx = nextOcc(c); const t = nx ? new Date(`2000-01-01T${c.time}`).toLocaleTimeString([], {hour:'numeric',minute:'2-digit',hour12:S.h12}) : '';
       return `<div class="tm"><span><b>${esc(c.n)}</b><div class="sub">${repLabel(c)} at ${t}${c.lead?` · alert ${c.lead} min before`:''}</div></span>
@@ -1189,8 +1194,8 @@ function timers(){
         <div class="field">Alert <select id="rl" aria-label="Alert lead time"><option value="0">at the time</option><option value="10">10 min before</option><option value="15" selected>15 min before</option><option value="30">30 min before</option><option value="60">1 hour before</option></select></div>
         <p class="sample">Day applies to weekly reminders; date applies to one-time ones.</p>
         <div class="btnrow"><button class="advance" data-saverem>Add reminder</button><button class="ghost" data-addrem>Cancel</button></div></div>`
-      : `<button class="ghost" style="display:block;width:100%;margin-top:8px" data-addrem>+ Add a reminder</button>`}
-    <h2 class="sh">Retainer ventures <span>${T.retainers.length}</span></h2><div class="card">${ret}</div><button class="ghost" style="display:block;width:100%;margin-top:8px" data-addret>+ Add retainer</button><p class="sample">Two retainer slots are free. Extra slots are paid; mark one inactive while you aren't paying for it and it keeps its name but drops out of timers.</p>
+      : `<button class="ghost" style="display:block;width:100%;box-sizing:border-box;margin-top:8px" data-addrem>+ Add a reminder</button>`}
+    <h2 class="sh">Retainer ventures <span>${T.retainers.length}</span></h2><div class="card">${ret}</div><button class="ghost" style="display:block;width:100%;box-sizing:border-box;margin-top:8px" data-addret>+ Add retainer</button><p class="sample">Two retainer slots are free. Extra slots are paid; mark one inactive while you aren't paying for it and it keeps its name but drops out of timers.</p>
     <h2 class="sh">Adventurer Squadron</h2><div class="card"><div class="tm"><span><b>Command mission</b><div class="sub">${sq?'Squadron is out':'Idle'}</div></span>
       <span class="ctrl">${sq?`<span class="cd ${sq<=0?'ready':''}">${fmtLeft(sq)}</span>`:`<button class="advance" data-squad>Sent</button>`}<button class="bell" aria-pressed="${T.squadron.alarm}" data-sqalarm aria-label="Alarm when the squadron returns">${BELL(T.squadron.alarm)}</button></span></div></div>
     <p class="sample">The bell on each retainer and on the squadron turns its "back now" alarm on or off.</p>`;
@@ -1437,6 +1442,11 @@ document.addEventListener('click', e => {
   if (ds.char){ switchChar(+ds.char); toast(`Switched to ${S.chars[S.char]}`); render(); return; }
   if ('addchar' in ds){ const nm = (window.prompt('Name for the new character', 'Alt ' + S.chars.length) || '').trim(); if (!nm) return; S.chars.push(nm); switchChar(S.chars.length-1); toast(`Added ${nm}, starting fresh`); render(); return; }
   if (ds.backup){ ds.backup==='export' ? exportBackup() : importBackup(); return; }
+  if ('exact' in ds){ const LN = LNP(); if (LN) LN.changeExactNotificationSetting().then(()=>syncNotifs(true)); return; }
+  if ('testnotif' in ds){ const LN = LNP(); if (!LN){ toast('Notifications work in the Android app'); return; }
+    (async () => { let st = (await LN.checkPermissions()).display; if (st!=='granted') st = (await LN.requestPermissions()).display; NOTIF.perm = st;
+      if (st!=='granted'){ toast('Notifications are turned off for this app in your phone settings'); return; }
+      await LN.schedule({notifications:[{id:9999, title:'Completionist Log', body:'Test alert: notifications are working', channelId:'timers', schedule:{at:new Date(Date.now()+5000), allowWhileIdle:true}}]}); toast('Test alert in 5 seconds'); })(); return; }
   if ('lodeimport' in ds){ lodeImport(); return; }
   if ('lodeedit' in ds){ S.lodeEdit = !S.lodeEdit; render(); return; }
   if ('lodeunlink' in ds){ S.lode = null; S.lodeEdit = false; toast('Lodestone link removed'); render(); return; }
@@ -1473,6 +1483,7 @@ document.addEventListener('click', e => {
   if (ds.ventitem){ const i = +ds.ventitem; const item = document.getElementById('vitem').value.trim() || 'material'; const ty = document.getElementById('vtype').value;
     Object.assign(S.timers.retainers[i], {task:`${ty}: ${item}`, end:Date.now()+3600e3}); closeSheet(); toast(`${S.timers.retainers[i].n} sent · back in 1h`); render(); return; }
   if (ds.collect){ Object.assign(S.timers.retainers[+ds.collect], {task:null,end:null}); render(); return; }
+  if (ds.cd){ const wk = nextUTC(8,2).getTime(); S.timers.cd = {week:wk, used: Math.max(0, Math.min(12, cdUsed() + +ds.cd))}; render(); return; }
   if ('squad' in ds){ S.timers.squadron.end = Date.now()+18*3600e3; toast('Squadron sent · back in 18h'); render(); return; }
 });
 document.addEventListener('change', e => {
@@ -1481,7 +1492,7 @@ document.addEventListener('change', e => {
   if (d.have){ HAVE[d.have] = Math.max(0, +e.target.value||0); render(); return; }
   if (d.qt){ S.quiet[d.qt] = e.target.value; return; }
   if (d.retname){ S.timers.retainers[+d.retname].n = e.target.value.trim() || 'Retainer'; return; }
-  if ('lvh' in d){ S.timers.leves.have = Math.max(0,Math.min(100,+e.target.value||0)); render(); return; }
+  if ('lvh' in d){ S.timers.leves.have = Math.max(0,Math.min(100,+e.target.value||0)); S.timers.leves.setAt = Date.now(); render(); return; }
   if ('lvw' in d){ S.timers.leves.want = Math.max(0,Math.min(100,+e.target.value||0)); render(); return; }
 });
 document.addEventListener('input', e => {
@@ -1608,6 +1619,64 @@ async function lodeImport(){
     lodeSheet(steps, true, why);
   } finally { LODE_BUSY = false; }
 }
+/* ================= phone notifications ================= */
+const LNP = () => window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform() && window.Capacitor.Plugins.LocalNotifications;
+let NOTIF = {perm:null, exact:null, sig:null, asked:false}, notifT = null;
+const hm = t => t.split(':').map(Number);
+function inQuiet(d){ if (!S.quiet || !S.quiet.on) return null; const [fh,fm] = hm(S.quiet.from), [th,tm] = hm(S.quiet.to);
+  const mins = d.getHours()*60 + d.getMinutes(), from = fh*60+fm, to = th*60+tm;
+  const inside = from <= to ? (mins >= from && mins < to) : (mins >= from || mins < to); if (!inside) return null;
+  const end = new Date(d); end.setHours(th, tm, 0, 0); if (end <= d) end.setDate(end.getDate()+1); return end; }
+function dailyAt(t, n){ const [h,m] = hm(t), out = [], d = new Date(); d.setHours(h,m,0,0); if (d <= new Date()) d.setDate(d.getDate()+1); for (let i=0;i<n;i++){ out.push(new Date(d)); d.setDate(d.getDate()+1); } return out; }
+function utcDaily(h, n){ const out = [], d = nextUTC(h); for (let i=0;i<n;i++){ out.push(new Date(d)); d.setUTCDate(d.getUTCDate()+1); } return out; }
+function planNotifs(){
+  const T = S.timers, now = Date.now(), plan = [];
+  const add = (id, title, body, at) => { if (!at || at.getTime() <= now + 5000) return; const q = inQuiet(at); plan.push({id, title, body, at: q || at}); };
+  const dItems = T.dailyDigest.items.filter(tOK), wItems = T.weeklyDigest.items.filter(tOK);
+  if (T.dailyDigest.on && dItems.length) dailyAt(T.dailyDigest.at, 14).forEach((d,i) => add(1000+i, 'Daily reset', dItems.join(', ') + ' available', d));
+  if (T.weeklyDigest.on && wItems.length){ const r = nextUTC(8,2); const [h,m] = hm(T.weeklyDigest.at);
+    for (let i=0;i<4;i++){ const reset = new Date(r.getTime() + i*7*864e5); const d = new Date(reset); d.setHours(h,m,0,0); if (d < reset) d.setDate(d.getDate()+1); add(1100+i, 'Weekly reset', wItems.join(', ') + ' available', d); } }
+  if (T.gc && tOK('Grand Company')) utcDaily(20, 14).forEach((d,i) => add(1200+i, 'Grand Company', 'Supply and provisioning missions have reset', d));
+  if (T.leves.on){ const have = leveNow(), ticks = Math.max(0, Math.ceil((T.leves.want - have)/3)); if (ticks){ const at = new Date(nextLeve().getTime() + (ticks-1)*432e5); add(1300, 'Leve allowances', `You have ${Math.min(100, have+ticks*3)} allowances`, at); } }
+  T.retainers.forEach((r,i) => { if (r.active && r.alarm && r.end) add(1400+i, `${r.n} is back`, r.task ? `${r.task} is done` : 'Venture complete', new Date(r.end)); });
+  if (T.squadron.alarm && T.squadron.end) add(1500, 'Adventurer Squadron', 'Your squadron is back from its command mission', new Date(T.squadron.end));
+  S.custom.forEach((c,i) => { if (!c.alarm) return; const [h,m] = hm(c.time), lead = (c.lead||0)*60e3, body = c.lead ? `Starts in ${c.lead} min` : 'Starting now';
+    if (c.rep==='once'){ const d = nextOcc(c); if (d) add(2000+i*20, c.n, body, new Date(d.getTime()-lead)); return; }
+    const d = new Date(); d.setHours(h,m,0,0); const step = c.rep==='daily' ? 1 : 7; if (c.rep==='weekly') while (d.getDay()!==c.dow) d.setDate(d.getDate()+1);
+    for (let k=0, n=0; n < (c.rep==='daily'?14:4) && k < 40; k++){ const at = new Date(d.getTime()-lead); if (at.getTime() > now){ add(2000+i*20+n, c.n, body, at); n++; } d.setDate(d.getDate()+step); } });
+  return plan;
+}
+async function syncNotifs(force){
+  const LN = LNP(); if (!LN) return;
+  try {
+    const plan = planNotifs(), sig = JSON.stringify(plan.map(p=>[p.id,p.at.getTime(),p.title,p.body]));
+    if (!force && sig === NOTIF.sig) return;
+    if (plan.length && NOTIF.perm !== 'granted'){
+      let st = (await LN.checkPermissions()).display;
+      if (st !== 'granted' && !NOTIF.asked){ NOTIF.asked = true; st = (await LN.requestPermissions()).display; }
+      NOTIF.perm = st; if (st !== 'granted'){ if (S.view==='timers') render(); return; }
+    }
+    try { NOTIF.exact = (await LN.checkExactNotificationSetting()).exact_alarm; } catch(e){ NOTIF.exact = 'granted'; }
+    const pend = (await LN.getPending()).notifications.filter(n => +n.id !== 9999); if (pend.length) await LN.cancel({notifications: pend.map(n=>({id:n.id}))});
+    if (plan.length) await LN.schedule({notifications: plan.map(p => ({id:p.id, title:p.title, body:p.body, channelId:'timers', schedule:{at:p.at, allowWhileIdle:true}, isExactNotification: NOTIF.exact==='granted'}))});
+    NOTIF.sig = sig;
+  } catch(e){ console.warn('notifications', e); }
+}
+const scheduleNotifs = () => { clearTimeout(notifT); notifT = setTimeout(() => syncNotifs(false), 800); };
+function notifBanner(){
+  if (!LNP()) return '';
+  if (NOTIF.perm && NOTIF.perm !== 'granted') return `<div class="panel" style="border-color:var(--warn)"><span class="grow"><b>Notifications are off</b><br><span class="sub">Turn them on for Completionist Log in your phone's settings to get these alerts.</span></span></div>`;
+  if (NOTIF.exact && NOTIF.exact !== 'granted') return `<div class="panel" style="border-color:var(--warn)"><span class="grow"><b>Alerts may run a few minutes late</b><br><span class="sub">Allow "Alarms & reminders" for on-time alerts.</span></span><button class="ghost" data-exact>Allow</button></div>`;
+  return '';
+}
+async function notifStart(){
+  const LN = LNP(); if (!LN) return;
+  try { await LN.createChannel({id:'timers', name:'Timers and reminders', description:'Resets, retainers, squadron and your reminders', importance:4, visibility:1, vibration:true}); } catch(e){}
+  LN.addListener('localNotificationActionPerformed', () => { closeSheet(); S.tab = S.view = 'timers'; render(); });
+  const App = window.Capacitor.Plugins.App;
+  if (App) App.addListener('appStateChange', st => { if (st.isActive){ syncNotifs(true); if (S.view==='timers') render(); } });
+  syncNotifs(true);
+}
 /* ================= saving ================= */
 const STORE = 'completionist-log.v1';
 const N_KEYS = Object.keys(N);
@@ -1656,7 +1725,7 @@ function writeStore(){
   STATE.onboard = !!S.onboard; STATE.savedAt = S.savedAt = Date.now();
   try { localStorage.setItem(STORE, JSON.stringify(STATE)); } catch(e){ toast('Couldn\'t save: phone storage is full'); }
 }
-function scheduleSave(){ clearTimeout(saveT); saveT = setTimeout(writeStore, 400); }
+function scheduleSave(){ clearTimeout(saveT); saveT = setTimeout(writeStore, 400); scheduleNotifs(); }
 document.addEventListener('visibilitychange', () => { if (document.visibilityState==='hidden'){ clearTimeout(saveT); writeStore(); } });
 function loadState(st){
   STATE = st && st.v===1 ? st : {v:1, chars:['Main'], active:0, progress:{}, settings:{}, onboard:true};
@@ -1687,6 +1756,7 @@ function importBackup(){
 if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(()=>{});
 loadState(readStore());
 if (S.start && S.start!=='home'){ S.tab = S.view = S.start; }
+notifStart();
 setInterval(() => { if (S.view==='timers' && !S.addingRem && !document.activeElement?.matches('input,select')) render(); }, 30000);
 render();
 })();

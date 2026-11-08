@@ -1181,9 +1181,6 @@ function timers(){
         <p class="sample">Day applies to weekly reminders; date applies to one-time ones.</p>
         <div class="btnrow"><button class="advance" data-saverem>Add reminder</button><button class="ghost" data-addrem>Cancel</button></div></div>`
       : `<button class="ghost" style="display:block;width:100%;margin-top:8px" data-addrem>+ Add a reminder</button>`}
-    <h2 class="sh">Events</h2><div class="card">
-      <div class="tm"><span><b>Seasonal event (sample)</b><div class="sub">Rewards: a minion and a glamour set</div></span><span class="cd">ends in 12d</span></div>
-      <div class="tm"><span><b>Moogle Treasure Trove (sample)</b><div class="sub">Past event rewards for tomestones · 3 of 9 claimed</div></span><span class="cd">ends in 26d</span></div></div>
     <h2 class="sh">Retainer ventures <span>${T.retainers.length}</span></h2><div class="card">${ret}</div><button class="ghost" style="display:block;width:100%;margin-top:8px" data-addret>+ Add retainer</button><p class="sample">Two retainer slots are free. Extra slots are paid; mark one inactive while you aren't paying for it and it keeps its name but drops out of timers.</p>
     <h2 class="sh">Adventurer Squadron</h2><div class="card"><div class="tm"><span><b>Command mission</b><div class="sub">${sq?'Squadron is out':'Idle'}</div></span>
       <span class="ctrl">${sq?`<span class="cd ${sq<=0?'ready':''}">${fmtLeft(sq)}</span>`:`<button class="advance" data-squad>Sent</button>`}<button class="bell" aria-pressed="${T.squadron.alarm}" data-sqalarm aria-label="Alarm when the squadron returns">${BELL(T.squadron.alarm)}</button></span></div></div>

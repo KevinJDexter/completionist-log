@@ -34,7 +34,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $out = "dalamud/CompletionistExporter/bin/x64/Release/CompletionistExporter"
+          $zip = Get-ChildItem -Recurse -Path dalamud -Filter latest.zip | Select-Object -First 1
+          if (-not $zip) { Get-ChildItem -Recurse dalamud/CompletionistExporter/bin | Select-Object FullName; throw "latest.zip not found" }
+          $out = $zip.DirectoryName
           Get-ChildItem $out
           $m = Get-Content "$out/CompletionistExporter.json" | ConvertFrom-Json
           $tag = "plugin-latest"

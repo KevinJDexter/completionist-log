@@ -484,7 +484,7 @@ function catStats(k){
   if (k==='coll'){ const all = Object.values(COLLDATA).flatMap(gs=>gs.flatMap(([,ms,gx])=>ms.map(m=>[m[0],m[2]||gx]))).filter(m=>inFocus(m[1])); return {d:all.filter(m=>OWN.has(m[0])).length,t:all.length,a:all.filter(m=>!OWN.has(m[0])).length,q:0}; }
   if (k==='shops'){ const L = SHOPS.filter(s=>inFocus(s.x) && msqDone(s.msq)); const all = L.flatMap(s=>s.items); return {d:all.filter(i=>OWN.has(i[0])).length, t:all.length, a:all.filter(i=>!OWN.has(i[0])).length, q:0}; }
   if (k==='explore'){ const its = EXZ.filter(z=>inFocus(z[2])).flatMap(z=>msqDone(z[3])?exItems(z):[]); const all = EXZ.filter(z=>inFocus(z[2])).flatMap(exItems); const d = its.filter(i=>C.has(i[0])).length; return {d, t:all.length, a:its.length-d, q:0}; }
-  if (k==='story'){ const zs = ZONES.filter(z=>inFocus(z[4])); const t = zs.reduce((a,z)=>a+z[3],0); const d = zs.reduce((a,z)=>a+z[5].filter((_,i)=>C.has(`zq:${z[0]}:${i}`)).length,0); const o = zs.filter(z=>msqDone(z[2])).reduce((a,z)=>a+z[3],0); return {d, t, a:o-d, q:0}; }
+  if (k==='story'){ const SR = DATA.SERIES.filter(x=>inFocus(x[2])), sT = SR.reduce((a,x)=>a+x[4].length,0), sD = SR.reduce((a,x)=>a+x[4].filter(([id])=>C.has('sq:'+id)).length,0), sO = SR.filter(x=>msqDone(x[3]||XGATE[x[2]]||MSQ[0].id)).reduce((a,x)=>a+x[4].length,0); const zs = ZONES.filter(z=>inFocus(z[4])); const t = zs.reduce((a,z)=>a+z[3],0); const d = zs.reduce((a,z)=>a+z[5].filter((_,i)=>C.has(`zq:${z[0]}:${i}`)).length,0); const o = zs.filter(z=>msqDone(z[2])).reduce((a,z)=>a+z[3],0); return {d:d+sD, t:t+sT, a:(o-d)+(sO-sD), q:0}; }
   const base = {explore:[30,120,12,0],world:[20,90,15,0],pastimes:[1,6,5,0],story:[12,40,5,2],field:[3,40,4,1],craft:[118,512,30,0],life:[5,30,3,1],games:[9,40,4,1],pvp:[6,30,3,0]}[k];
   const share = f==='all' ? 1 : {arr:.3,hw:.16,sb:.16,shb:.13,ew:.13,dt:.12}[f];
   const [d,t,a,q] = base.map((v,i)=> i===3 ? (f==='all'||f==='sb'?v:0) : Math.round(v*share));
@@ -838,16 +838,18 @@ ZONES.forEach(z => { if (z[4]==='arr') for (let i=0;i<Math.floor(z[3]*.8);i++) C
 const FISH = Object.assign({arr:{},hw:{},sb:{},shb:{},ew:{},dt:{}}, DATA.FISH);
 Object.entries(FISH.arr).slice(0,4).forEach(([r,holes]) => holes.forEach(x => C.add(`fish:arr:${r}:${x}`)));
 function story(){
-  const series = [['ss-hildi','Hildibrand Adventures','arr',{msq:'arr2'},8,null],['ss-kojin','Kojin storyline','sb',{msq:'sb-ruby0'},8,null],['ss-ananta','Ananta storyline','sb',{msq:'sb1'},8,null],['ss-hildi-ew','Hildibrand Adventures, part two','ew',{msq:'ew0'},10,'ss-hildi']];
-  const ser = series.filter(s=>inFocus(s[2])).map(([k,n,x,o,max,prev])=>{ N[k]=N[k]||0;
-    return {name:n, x, lock:o, hideUnless: prev ? () => N[prev]===8 : null, html:()=>row(`${esc(n)}${xtag(x)}`, N[k]===max?'Complete':`Part ${N[k]} of ${max}`, stepN(k,0,max,1,n), bar(N[k],max), pinB(k,n,'story'))}; });
+  // side story series from the game's quest journal, quest by quest
+  const groups = [...new Set(DATA.SERIES.map(x=>x[0]))];
+  const serEntries = g => DATA.SERIES.filter(x=>x[0]===g && inFocus(x[2])).map(([,genre,x,gate,qs]) => ({name:genre, x, lock: gate?{msq:gate}:(XGATE[x]?{msq:XGATE[x]}:null), html:()=>{
+    const key = 'ser:'+genre, open = S.open.has(key), d = qs.filter(([id])=>C.has('sq:'+id)).length;
+    return `<div class="item" style="display:block;padding:0"><div style="display:flex;align-items:center"><button class="grp" data-grp="${esc(key)}" aria-expanded="${open}">${CHEV}<span class="gn"><b>${esc(genre)}</b>${S.focus==='all'?xtag(x):''}</span><span class="gc">${d===qs.length?'Complete':`${d} / ${qs.length}`}</span></button></div>
+      ${open ? qs.map(([id,n]) => box('sq:'+id, n, '')).join('') : `<div style="padding:0 14px 10px">${bar(d, qs.length)}</div>`}</div>`; }}));
   const zones = ZONES.filter(z=>inFocus(z[4])).map(([k,n,m,max,x])=>({name:n, x, lock:{msq:m}, html:()=>{ const keys = Array.from({length:max},(_,i)=>`zq:${k}:${i}`); const reg = {kind:'side',k,name:n,parent:'story'};
       return drill(n, keys.filter(x=>C.has(x)).length, max, reg, pinB('reg:side:'+k, n+' sidequests', 'region', reg)); }}));
   return `${topbar('Side stories',true)}${focusChips()}
-    ${sect('Story series', ser, 'parts done') || '<div class="stubmsg">None for this expansion</div>'}
-    ${sect('Sidequests by area', zones, 'tap an area')}
+    ${orEmpty(groups.map(g => sect(g, serEntries(g), 'quests done')).join('') + sect('Sidequests by area', zones, 'tap an area'))}
     <div class="card" style="margin-top:12px"><button class="drill" data-go="leves"><span><b>Levequests</b><div class="sub">All 1,757 leves, under World</div></span><span></span>${CHEV}</button></div>
-    <p class="sample">With "Next only" spoilers, Hildibrand part two stays hidden until part one is complete.</p>`;
+    <p class="sample">Each series lists its quests in order. A Lodestone sync while signed in ticks the ones you've done.</p>`;
 }
 /* ---------- Field ops & deep dungeons ---------- */
 function field(){
@@ -1451,6 +1453,8 @@ document.addEventListener('click', e => {
       if (st!=='granted'){ toast('Notifications are turned off for this app in your phone settings'); return; }
       await LN.schedule({notifications:[{id:9999, title:'Completionist Log', body:'Test alert: notifications are working', channelId:'timers', schedule:{at:new Date(Date.now()+5000), allowWhileIdle:true}}]}); toast('Test alert in 5 seconds'); })(); return; }
   if ('lodeimport' in ds){ lodeImport(); return; }
+  if ('lodereport' in ds){ const rep = {app:'completionist-log', version:'sync report', at:new Date().toISOString(), signedIn:!!(S.lode&&S.lode.signedIn), pages:LODE_LOG};
+    shareFile('completionist-log-sync-report.json', JSON.stringify(rep, null, 1), 'Lodestone sync report').catch(()=>toast('Couldn\'t create the report')); return; }
   if ('lodesignin' in ds){ lodeSignIn(); return; }
   if ('lodesignout' in ds){ const H = LODE(); if (H) H.signOut().then(()=>{ S.lode.signedIn = false; render(); toast('Signed out of the Lodestone'); }); return; }
   if ('lodeedit' in ds){ S.lodeEdit = !S.lodeEdit; render(); return; }
@@ -1511,7 +1515,7 @@ document.addEventListener('keydown', e => { if (e.key==='Escape') closeSheet(); 
 // Reads the public Lodestone pages straight from the phone (native HTTP, so no browser cross-site block).
 const LODE_UA_MOBILE = 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36';
 const LODE_UA_DESKTOP = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36';
-let LODE_UNDO = null, LODE_BUSY = false;
+let LODE_UNDO = null, LODE_BUSY = false, LODE_LOG = [];
 const norm = t => String(t||'').toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'');
 const CLASS_TO_JOB = {gladiator:'PLD',marauder:'WAR',conjurer:'WHM',pugilist:'MNK',lancer:'DRG',rogue:'NIN',archer:'BRD',thaumaturge:'BLM',arcanist:'SMN'};
 function parseLodeUrl(u){
@@ -1524,6 +1528,10 @@ async function lodeGet(L, path, mobile=true){
   const H = LODE(); if (!H) throw {code:'web'};
   const url = `${lodeHost(L)}/lodestone/character/${L.id}/${path}`;
   const r = await H.get({url, userAgent: mobile ? LODE_UA_MOBILE : LODE_UA_DESKTOP});
+  const html = typeof r.data==='string' ? r.data : String(r.data||'');
+  LODE_LOG.push({path, status:r.status, final:r.url, bytes:html.length, loggedIn:/ldst_is_loggedin\s*=\s*true/.test(html),
+    marks:['entry__quest','entry__quest__name','btn__pager__current','orchestrion-list','tripletriad-card_list','bluemage-action__list__item','trust__character','character__job','entry__achievement--complete','mount__name','minion__name','parts__zero','private'].filter(m=>html.includes(m)),
+    sample: /^quest\//.test(path) && !LODE_LOG.some(x=>/^quest\//.test(x.path)) ? (html.match(/<li class="entry__quest[\s\S]{0,1500}/)||[html.slice(0,1500)])[0] : undefined});
   if (r.status===404) return null;
   if (r.status===403) throw {code:'private', path};
   if (r.status===429 || r.status>=500) throw {code:'busy', status:r.status};
@@ -1536,7 +1544,7 @@ function lodeSheet(lines, done, summary){
   L.innerHTML = `<div class="scrim" ${done?'data-close':''}></div><div class="sheet noanim" role="dialog" aria-label="Lodestone import"><div class="grab"></div><h3>Lodestone import</h3>
     <div class="card" style="padding:4px 0">${lines.map(([t,st])=>`<div class="tm"><span><b>${esc(t)}</b></span><span class="cd ${st==='done'?'ready':''}">${esc(st)}</span></div>`).join('')}</div>
     ${summary ? `<p style="margin:12px 0 0">${summary}</p>` : ''}
-    ${done ? `<div class="btnrow">${LODE_UNDO?'<button class="ghost" data-lodeundo>Undo import</button>':''}<button class="advance" data-close>Done</button></div>` : '<p class="sample">This takes about half a minute. Keep the app open.</p>'}</div>`;
+    ${done ? `<div class="btnrow">${LODE_UNDO?'<button class="ghost" data-lodeundo>Undo import</button>':''}<button class="advance" data-close>Done</button></div><button class="link" data-lodereport style="margin-top:10px">Share a sync report</button>` : '<p class="sample">This can take a minute or two. Keep the app open.</p>'}</div>`;
 }
 async function lodeImport(){
   if (LODE_BUSY) return;
@@ -1545,7 +1553,7 @@ async function lodeImport(){
   if (!L){ toast('Paste the link to your Lodestone character page first'); return; }
   if (!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform())){ toast('Lodestone import works in the Android app'); return; }
   const same = S.lode && S.lode.id===L.id; S.lode = {...(same ? S.lode : {}), url: String(raw).trim(), id: L.id, region: L.region}; S.lodeEdit = false;
-  LODE_BUSY = true; const before = progressSnap(); const prevMsq = S.msq;
+  LODE_BUSY = true; LODE_LOG = []; const before = progressSnap(); const prevMsq = S.msq;
   const steps = [['Profile','waiting'],['Job levels','waiting'],['Mounts','waiting'],['Minions','waiting'],['Facewear','waiting'],['Emotes','waiting'],['Achievements','waiting']].concat(S.lode.signedIn ? [['Quests','waiting'],['Orchestrion','waiting'],['Triple Triad','waiting'],['Blue Magic','waiting'],['Trust','waiting']] : []);
   const set = (i, st) => { steps[i][1] = st; lodeSheet(steps, false); };
   const res = {jobs:0, mounts:0, minions:0, face:0, emotes:0, ach:0, quests:0, duties:0, soc:0, orch:0, tt:0, blu:0, trust:0, qdone:0, side:0, hidden:[]};
@@ -1702,6 +1710,7 @@ async function lodeOwnerPages(L, steps, set, res, addOwn, bump){
   Object.values(Q).forEach(q => { if (titles.has(norm(q.n)) && !q.done){ q.done = true; q.at = QSEQ++; res.qdone++; if (q.msq) bump(q.msq); } });
   Object.entries(DATA.ZQ).forEach(([zn,qs]) => qs.forEach((n,i) => { const k = `zs:${zn}:${i}`; if (titles.has(norm(n)) && !C.has(k)){ C.add(k); res.side++; } }));
   DATA.SIDE.forEach((z,si) => z[3].forEach((n,j) => { const k = `zq:s${si}:${j}`; if (titles.has(norm(n))) C.add(k); }));
+  DATA.SERIES.forEach(sr => sr[4].forEach(([id,n]) => { const k = 'sq:'+id; if (titles.has(norm(n)) && !C.has(k)){ C.add(k); res.side++; } }));
   set(base, `${fmtN(titles.size)} found`);
   // orchestrion
   set(base+1, 'reading');
@@ -1795,12 +1804,22 @@ function loadState(st){
   GIDX = null;
 }
 function switchChar(i){ writeStore(); S.char = i; applyProgress(STATE.progress[i]); writeStore(); }
-function exportBackup(){
-  writeStore();
-  const blob = new Blob([JSON.stringify({app:'completionist-log', ...STATE}, null, 1)], {type:'application/json'});
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `completionist-log-backup-${new Date().toISOString().slice(0,10)}.json`;
+// hand a file to Android's share sheet (save to Drive or Files, send it, ...); browser fallback downloads it
+async function shareFile(name, text, title){
+  const P = window.Capacitor && window.Capacitor.Plugins, FS = P && P.Filesystem, SH = P && P.Share;
+  if (FS && SH && window.Capacitor.isNativePlatform()){
+    const w = await FS.writeFile({path:name, data:text, directory:'CACHE', encoding:'utf8'});
+    try { await SH.share({title, files:[w.uri], dialogTitle:title}); } catch(e){ if (!/cancel/i.test(String(e && e.message))) throw e; }
+    return;
+  }
+  const blob = new Blob([text], {type: name.endsWith('.json') ? 'application/json' : 'text/plain'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
   document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
-  toast('Backup saved to your downloads');
+}
+async function exportBackup(){
+  writeStore();
+  try { await shareFile(`completionist-log-backup-${new Date().toISOString().slice(0,10)}.json`, JSON.stringify({app:'completionist-log', ...STATE}, null, 1), 'Completionist Log backup'); }
+  catch(e){ toast('Couldn\'t create the backup file'); }
 }
 function importBackup(){
   const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'application/json,.json';

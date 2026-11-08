@@ -35,10 +35,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           $zip = Get-ChildItem -Recurse -Path dalamud -Filter latest.zip | Select-Object -First 1
-          if (-not $zip) { Get-ChildItem -Recurse dalamud/CompletionistExporter/bin | Select-Object FullName; throw "latest.zip not found" }
+          if (-not $zip) { Get-ChildItem -Recurse dalamud/ProgressExporter/bin | Select-Object FullName; throw "latest.zip not found" }
           $out = $zip.DirectoryName
           Get-ChildItem $out
-          $m = Get-Content "$out/CompletionistExporter.json" | ConvertFrom-Json
+          $m = Get-Content "$out/ProgressExporter.json" | ConvertFrom-Json
           $tag = "plugin-latest"
           gh release delete $tag --yes --cleanup-tag 2>$null
           gh release create $tag "$out/latest.zip" --title "Dalamud exporter $($m.AssemblyVersion)" --notes "Install through XIVLauncher: add https://raw.githubusercontent.com/${{ github.repository }}/main/dalamud/repo.json as a custom plugin repository." --prerelease

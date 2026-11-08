@@ -11,10 +11,10 @@ using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using Lumina.Excel.Sheets;
 
-namespace CompletionistExporter;
+namespace ProgressExporter;
 
 /// <summary>
-/// Read-only exporter for the Completionist Log app. /clexport writes one JSON file
+/// Read-only exporter for the Completionist Log app. /progex writes one JSON file
 /// with what the game client knows you've completed or unlocked. Nothing is uploaded.
 /// </summary>
 public sealed unsafe class Plugin : IDalamudPlugin
@@ -27,7 +27,7 @@ public sealed unsafe class Plugin : IDalamudPlugin
     [PluginService] internal static IChatGui Chat { get; private set; } = null!;
     [PluginService] internal static IPluginLog Log { get; private set; } = null!;
 
-    private const string Command = "/clexport";
+    private const string Command = "/progex";
 
     // The same level brackets as the app's crafting grid
     private static readonly Dictionary<string, int[]> Brackets = new()
@@ -53,7 +53,7 @@ public sealed unsafe class Plugin : IDalamudPlugin
     {
         if (!ClientState.IsLoggedIn || !PlayerState.IsLoaded)
         {
-            Chat.PrintError("[Completionist Log] Log in to a character first.");
+            Chat.PrintError("[Progress Exporter] Log in to a character first.");
             return;
         }
         try
@@ -63,12 +63,12 @@ public sealed unsafe class Plugin : IDalamudPlugin
             Directory.CreateDirectory(dir);
             var path = Path.Combine(dir, $"completionist-log-game-{DateTime.Now:yyyy-MM-dd-HHmm}.json");
             File.WriteAllText(path, JsonSerializer.Serialize(data, new JsonSerializerOptions { WriteIndented = false }));
-            Chat.Print($"[Completionist Log] Saved {Path.GetFileName(path)} to Documents\\Completionist Log. Put it on your phone (Google Drive works) and choose Import game export in the app.");
+            Chat.Print($"[Progress Exporter] Saved {Path.GetFileName(path)} to Documents\\Completionist Log. Put it on your phone (Google Drive works) and choose Import game export in the app.");
         }
         catch (Exception e)
         {
             Log.Error(e, "Export failed");
-            Chat.PrintError($"[Completionist Log] Export failed: {e.Message}");
+            Chat.PrintError($"[Progress Exporter] Export failed: {e.Message}");
         }
     }
 

@@ -1,0 +1,55 @@
+name: Build Dalamud exporter
+
+on:
+  push:
+    branches: [main]
+    paths: ['dalamud/**', '.github/workflows/plugin.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Download Dalamud
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri https://goatcorp.github.io/dalamud-distrib/latest.zip -OutFile latest.zip
+          Expand-Archive -Force latest.zip "$env:AppData\XIVLauncher\addon\Hooks\dev"
+
+      - name: Build
+        working-directory: dalamud
+        run: dotnet build --configuration Release
+
+      - name: Publish plugin and repository file
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $out = "dalamud/CompletionistExporter/bin/x64/Release/CompletionistExporter"
+          Get-ChildItem $out
+          $m = Get-Content "$out/CompletionistExporter.json" | ConvertFrom-Json
+          $tag = "plugin-latest"
+          gh release delete $tag --yes --cleanup-tag 2>$null
+          gh release create $tag "$out/latest.zip" --title "Dalamud exporter $($m.AssemblyVersion)" --notes "Install through XIVLauncher: add https://raw.githubusercontent.com/${{ github.repository }}/main/dalamud/repo.json as a custom plugin repository." --prerelease
+          $dl = "https://github.com/${{ github.repository }}/releases/download/$tag/latest.zip"
+          $entry = [ordered]@{
+            Author = $m.Author; Name = $m.Name; InternalName = $m.InternalName; AssemblyVersion = $m.AssemblyVersion
+            Punchline = $m.Punchline; Description = $m.Description; ApplicableVersion = "any"; RepoUrl = $m.RepoUrl
+            Tags = $m.Tags; DalamudApiLevel = $m.DalamudApiLevel; LoadPriority = 0; IsHide = $false; IsTestingExclusive = $false
+            DownloadLinkInstall = $dl; DownloadLinkUpdate = $dl; DownloadLinkTesting = $dl
+            LastUpdate = [int][double]::Parse((Get-Date -UFormat %s))
+          }
+          ConvertTo-Json @($entry) -Depth 5 | Set-Content -Encoding utf8NoBOM dalamud/repo.json
+          git config user.name "github-actions"; git config user.email "github-actions@users.noreply.github.com"
+          git add dalamud/repo.json
+          git commit -m "Update Dalamud repository file [skip ci]" ; if ($LASTEXITCODE -eq 0) { git push }
+          exit 0

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Dalamud.NET.Sdk/15.0.0">
+  <PropertyGroup>
+    <Version>0.1.0.0</Version>
+    <Author>Kevin Dexter</Author>
+    <Name>Completionist Log Exporter</Name>
+    <Punchline>Exports your unlocks and progress to a file for the Completionist Log app.</Punchline>
+    <Description>Type /clexport to write one JSON file with completed quests, cleared duties, crafting log progress, job levels, Blue Magic spells, orchestrion rolls, Triple Triad cards, mounts, minions, emotes, facewear, bardings and fashion accessories. Read-only: nothing is changed in game and nothing is uploaded. Import the file in the Completionist Log app.</Description>
+    <RepoUrl>https://github.com/KevinJDexter/completionist-log</RepoUrl>
+    <Tags>completionist;tracker;export</Tags>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+</Project>

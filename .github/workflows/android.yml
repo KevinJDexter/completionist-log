@@ -3,6 +3,7 @@ name: Build Android app
 on:
   push:
     branches: [main]
+    paths-ignore: ['dalamud/**', '.github/workflows/plugin.yml']
   workflow_dispatch:
 
 permissions:

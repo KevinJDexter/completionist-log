@@ -1,0 +1,1581 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Completionist Log</title>
+<meta name="description" content="FFXIV completionist tracker">
+<meta name="theme-color" content="#f6f7fa" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#10131f" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png" sizes="192x192">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: one phone-width app column (max 440px) centred on larger screens; four bottom tabs; sheets slide up from the bottom. */
+:root{
+  --bg:#e9ebf1; --app:#f6f7fa; --surface:#ffffff; --sunk:#eef0f5; --ink:#1a1e2c; --muted:#5c6277; --faint:#9298ab; --line:#dfe2ea;
+  --quest:#2f6fe0; --quest-soft:#e3ecfc; --lock:#a3a8b8; --warn:#b4570f;
+  --x-arr:#2c66c9; --x-hw:#3f7aa6; --x-sb:#b8322a; --x-shb:#7148bd; --x-ew:#9a7208; --x-dt:#16897a; --x-all:#3a3f55;
+  --accent:#8a5a14; --accent-ink:#ffffff;
+  --f-display:"Cinzel",Georgia,serif; --f-body:"Source Sans 3","Segoe UI",system-ui,sans-serif; --f-mono:"IBM Plex Mono",ui-monospace,monospace;
+  --r:12px;
+  --c-jobs:#c0612b; --c-duties:#3a5bd9; --c-gear:#8a6d1a; --c-ranks:#2f8f6b; --c-coll:#b03a7a; --c-story:#6b4bb5; --c-field:#1f7f8f; --c-craft:#6f7f1a; --c-life:#c2406a; --c-games:#c23b3b; --c-pvp:#56688f; --c-hduties:#a13d8f; --c-explore:#2f7d4f; --c-world:#8a5a2b; --c-pastimes:#6a7280; --c-shops:#9b6a12; --gold:#a8790a; --gold-soft:#fbf1d6;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0a0c16; --app:#10131f; --surface:#181c2c; --sunk:#141827; --ink:#e8eaf2; --muted:#9ca2b8; --faint:#6c7288; --line:#272c42;
+  --quest:#6ea0ff; --quest-soft:#1b2848; --lock:#5b6075; --warn:#f0a35e;
+  --x-arr:#6f9ff2; --x-hw:#86b6da; --x-sb:#ee6e60; --x-shb:#ad90ee; --x-ew:#dcb14e; --x-dt:#4ccdb9; --x-all:#c4c8d8;
+  --accent:#e0b25a; --accent-ink:#1a1405; --c-jobs:#f0915a; --c-duties:#7f9bff; --c-gear:#d9b84f; --c-ranks:#5fd0a5; --c-coll:#ec7fbd; --c-story:#a98bf0; --c-field:#4fc6d6; --c-craft:#b6c84a; --c-life:#f07f9f; --c-games:#f27a7a; --c-pvp:#9fb3dc; --c-hduties:#e38ad0; --c-explore:#6fd39a; --c-world:#e0a46a; --c-pastimes:#b4bac6; --c-shops:#e8b65a; --gold:#f2c24e; --gold-soft:#3a2f12; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#0a0c16; --app:#10131f; --surface:#181c2c; --sunk:#141827; --ink:#e8eaf2; --muted:#9ca2b8; --faint:#6c7288; --line:#272c42;
+  --quest:#6ea0ff; --quest-soft:#1b2848; --lock:#5b6075; --warn:#f0a35e;
+  --x-arr:#6f9ff2; --x-hw:#86b6da; --x-sb:#ee6e60; --x-shb:#ad90ee; --x-ew:#dcb14e; --x-dt:#4ccdb9; --x-all:#c4c8d8;
+  --accent:#e0b25a; --accent-ink:#1a1405; --c-jobs:#f0915a; --c-duties:#7f9bff; --c-gear:#d9b84f; --c-ranks:#5fd0a5; --c-coll:#ec7fbd; --c-story:#a98bf0; --c-field:#4fc6d6; --c-craft:#b6c84a; --c-life:#f07f9f; --c-games:#f27a7a; --c-pvp:#9fb3dc; --c-hduties:#e38ad0; --c-explore:#6fd39a; --c-world:#e0a46a; --c-pastimes:#b4bac6; --c-shops:#e8b65a; --gold:#f2c24e; --gold-soft:#3a2f12; color-scheme:dark }
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:15px/1.4 var(--f-body);margin:0}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--app)}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.app{max-width:440px;margin:0 auto;min-height:100vh;background:var(--app);position:relative;overflow-x:hidden;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 96px}
+@media (min-width:600px){.app{margin-block:24px;min-height:auto;border:1px solid var(--line);border-radius:28px;box-shadow:0 20px 60px rgba(0,0,0,.15)}}
+.sample{font-size:.75rem;color:var(--muted);padding:10px 0 0;margin:0}
+.center{text-align:center}
+
+.top{display:flex;align-items:center;gap:10px;padding:14px 0 10px;position:sticky;top:env(safe-area-inset-top,0px);background:var(--app);z-index:4}
+.top h1{font-family:var(--f-display);font-size:1.3rem;margin:0;flex:1;min-width:0;letter-spacing:.03em}
+.back{all:unset;cursor:pointer;width:34px;height:34px;display:grid;place-items:center;border-radius:50%;background:var(--surface);border:1px solid var(--line)}
+.iconbtn{all:unset;cursor:pointer;width:34px;height:34px;display:grid;place-items:center;border-radius:50%;color:var(--muted)}
+svg{flex:none}
+
+.panel{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:10px;width:100%;padding:12px 14px;border-radius:var(--r);background:var(--surface);border:1px solid var(--line)}
+button.panel{cursor:pointer}
+.lbl{font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.grow{flex:1;min-width:0}
+.val{font-weight:700}
+.chips{display:flex;gap:6px;overflow-x:auto;padding:12px 0 4px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{all:unset;cursor:pointer;padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);font-size:.85rem;font-weight:600;white-space:nowrap}
+.chip[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--app)}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;vertical-align:1px}
+h2.sh{font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:20px 0 8px;font-weight:700;display:flex;justify-content:space-between;gap:8px}
+h2.sh span{letter-spacing:0;text-transform:none;font-weight:600}
+.link{all:unset;cursor:pointer;color:var(--accent);font-weight:700;font-size:.85rem}
+
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tile{all:unset;box-sizing:border-box;cursor:pointer;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px;display:grid;grid-template-columns:1fr auto;gap:4px 8px;align-items:center;min-height:88px}
+.tile .tn{font-weight:700;line-height:1.2}
+.tile .ta{grid-column:1/-1;font-size:.78rem;color:var(--muted)}
+.tile .ta b{color:var(--ink)}
+.tq{color:var(--quest);font-weight:600}
+.tile.stub{opacity:.75}
+.ring{width:38px;height:38px}
+.ring text{font:500 10px var(--f-mono);fill:var(--ink)}
+
+.seg{display:flex;background:var(--sunk);border-radius:10px;padding:3px;margin-top:10px}
+.seg button{all:unset;cursor:pointer;flex:1 1 auto;text-align:center;padding:6px 6px;white-space:nowrap;border-radius:8px;font-size:.85rem;font-weight:600;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 12px;font-size:.75rem;color:var(--muted);padding:8px 0 0}
+.legend span{display:inline-flex;gap:5px;align-items:center}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.item{display:flex;gap:10px;padding:11px 12px;align-items:flex-start;border-top:1px solid var(--line)}
+.item:first-child{border-top:0}
+.body{flex:1;min-width:0}
+.nm{font-weight:600}
+.sub{font-size:.8rem;color:var(--muted);margin-top:1px}
+.item.locked .nm{color:var(--faint)}
+.item.done .nm{color:var(--muted)}
+.xtag{font:500 .68rem var(--f-mono);padding:1px 6px;border-radius:5px;border:1px solid currentColor;margin-left:6px;vertical-align:1px;white-space:nowrap}
+.st{width:24px;height:24px;flex:none;margin-top:1px}
+.stbtn{all:unset;cursor:pointer;display:grid;place-items:center;border-radius:50%}
+.turns{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.turn{all:unset;cursor:pointer;font:500 .78rem var(--f-mono);padding:5px 9px;border-radius:7px;border:1px solid var(--line);background:var(--sunk)}
+.turn[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.pinbtn{all:unset;cursor:pointer;width:30px;height:30px;display:grid;place-items:center;border-radius:8px;color:var(--faint);flex:none}
+.pinbtn[aria-pressed="true"]{color:var(--accent)}
+
+/* unlock chain */
+.chain{margin:8px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:0}
+.chain li{display:grid;grid-template-columns:16px 1fr;gap:8px;font-size:.8rem;color:var(--muted);position:relative;padding-bottom:6px}
+.chain li::before{content:"";width:8px;height:8px;border-radius:50%;border:2px solid var(--lock);margin:4px 0 0 2px;background:var(--surface)}
+.chain li:not(:last-child)::after{content:"";position:absolute;left:6px;top:14px;bottom:-2px;width:2px;background:var(--line)}
+.chain li.now{color:var(--quest)}
+.chain li.now::before{border-color:var(--quest);background:var(--quest)}
+.chain li.msq::before{border-radius:2px;border-color:var(--warn)}
+.chain li.msq{color:var(--warn)}
+.chain b{color:inherit}
+.qbtn{all:unset;cursor:pointer;font-size:.75rem;font-weight:700;color:var(--quest);padding:2px 9px;border:1px solid var(--quest);border-radius:999px;margin-left:6px}
+
+/* ladders, steppers */
+.ladder{display:flex;gap:4px;align-items:center}
+.rung{all:unset;cursor:pointer;width:22px;height:8px;border-radius:4px;background:var(--line)}
+.rung.on{background:var(--accent)}
+.ladlbl{font-size:.78rem;color:var(--muted);margin-left:6px;white-space:nowrap}
+.stepper{display:flex;align-items:center;gap:6px}
+.sbtn{all:unset;cursor:pointer;width:30px;height:30px;display:grid;place-items:center;border-radius:8px;border:1px solid var(--line);background:var(--sunk);font-weight:700}
+.sval{cursor:pointer;font:500 1rem var(--f-mono);min-width:32px;text-align:center}
+.advance{all:unset;cursor:pointer;font-size:.8rem;font-weight:700;padding:6px 12px;border-radius:8px;background:var(--accent);color:var(--accent-ink);text-align:center}
+.ghost{all:unset;cursor:pointer;font-size:.8rem;font-weight:700;padding:6px 12px;border-radius:8px;border:1px solid var(--line);background:var(--sunk);text-align:center}
+.track{display:flex;gap:3px;min-width:0}
+.pip{all:unset;cursor:pointer;flex:1;height:12px;border-radius:3px;background:var(--line);min-width:0}
+.pip.on{background:var(--accent)}
+.jobrow{display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:center;padding:10px 12px;border-top:1px solid var(--line)}
+.jobrow:first-child{border-top:0}
+.lvbar{grid-column:1/-1;height:4px;background:var(--line);border-radius:2px;overflow:hidden}
+.lvbar i{display:block;height:100%;background:var(--accent)}
+
+/* goals */
+.goal{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px;display:flex;flex-direction:column;gap:10px;margin-bottom:10px}
+.goal .gh{display:flex;gap:8px;align-items:flex-start}
+.goal .gt{font-weight:700;flex:1;min-width:0}
+.note{width:100%;border:1px solid var(--line);border-radius:8px;background:var(--sunk);padding:7px 9px;font-size:.85rem}
+
+/* collections */
+.ownrow{display:flex;align-items:center;gap:10px;padding:10px 12px;border-top:1px solid var(--line)}
+.ownrow:first-child{border-top:0}
+.own{all:unset;cursor:pointer;width:22px;height:22px;border-radius:6px;border:1.5px solid var(--muted);display:grid;place-items:center;flex:none}
+.own[aria-checked="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.own svg{opacity:0}.own[aria-checked="true"] svg{opacity:1}
+.search{width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);margin-top:10px}
+.collgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+/* timers */
+.tm{display:grid;grid-template-columns:1fr auto;gap:2px 10px;align-items:center;padding:11px 12px;border-top:1px solid var(--line)}
+.tm:first-child{border-top:0}
+.cd{font:500 .85rem var(--f-mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.cd.ready{color:var(--accent)}
+.bell{all:unset;cursor:pointer;width:30px;height:30px;display:grid;place-items:center;border-radius:8px;color:var(--faint)}
+.bell[aria-pressed="true"]{color:var(--accent)}
+.opts{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.field{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:.85rem;color:var(--muted);margin-top:6px;grid-column:1/-1}
+.field input[type=number]{width:64px;padding:5px 7px;border:1px solid var(--line);border-radius:7px;background:var(--surface);font-family:var(--f-mono)}
+.field select,.field input[type=time]{padding:5px 7px;border:1px solid var(--line);border-radius:7px;background:var(--surface)}
+.checks{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+
+/* sheets, nav, toast */
+.scrim{position:fixed;inset:0;background:rgba(5,7,15,.45);z-index:20}
+.sheet{position:fixed;left:50%;transform:translateX(-50%);bottom:0;width:100%;max-width:440px;max-height:85vh;overflow:auto;z-index:21;background:var(--surface);border-radius:20px 20px 0 0;
+  padding:8px max(16px,env(safe-area-inset-right,0px)) calc(20px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));animation:up .2s ease-out}
+@keyframes up{from{transform:translate(-50%,40px);opacity:.6}}
+.grab{width:40px;height:4px;border-radius:2px;background:var(--line);margin:4px auto 10px}
+.sheet h3{font-family:var(--f-display);margin:0 0 4px;font-size:1.15rem}
+.help{color:var(--muted);font-size:.85rem;margin:0 0 10px}
+.exph{font-weight:700;margin:14px 0 4px;display:flex;align-items:center;gap:4px}
+.chap{font-size:.75rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:700;margin:10px 0 2px 10px}
+.patch{all:unset;box-sizing:border-box;cursor:pointer;display:flex;gap:10px;align-items:center;width:100%;padding:8px 10px;border-radius:9px}
+.patch[aria-pressed="true"]{background:var(--quest-soft)}
+.patch .pn{font:500 .78rem var(--f-mono);color:var(--muted);width:30px;flex:none}
+.patch.past .pt{color:var(--muted)}
+.toggle{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--line)}
+.sw{all:unset;cursor:pointer;width:44px;height:26px;border-radius:13px;background:var(--line);position:relative;flex:none}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:var(--surface);transition:left .15s}
+.sw[aria-checked="true"]{background:var(--accent)}
+.sw[aria-checked="true"]::after{left:21px}
+.wide{all:unset;box-sizing:border-box;cursor:pointer;display:block;width:100%;text-align:center;padding:12px;border-radius:10px;background:var(--ink);color:var(--app);font-weight:700;margin-top:12px}
+.opt{all:unset;box-sizing:border-box;cursor:pointer;display:flex;justify-content:space-between;gap:10px;width:100%;padding:12px;border:1px solid var(--line);border-radius:10px;margin-top:8px}
+.opt:hover{border-color:var(--accent)}
+.nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:440px;background:var(--surface);border-top:1px solid var(--line);display:flex;z-index:10;
+  padding:6px max(16px,env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+@media (min-width:600px){.nav{position:sticky;bottom:0;transform:none;left:auto;border-radius:0 0 28px 28px;margin-top:20px;width:auto;margin-left:calc(-1 * max(16px,env(safe-area-inset-left,0px)));margin-right:calc(-1 * max(16px,env(safe-area-inset-right,0px)))} .app{padding-bottom:0}}
+.nav button{all:unset;cursor:pointer;flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:.7rem;font-weight:600;color:var(--muted);padding:4px 0;position:relative}
+.nav button[aria-current="page"]{color:var(--accent)}
+.badge{position:absolute;top:0;left:calc(50% + 6px);background:var(--quest);color:#fff;font:700 .62rem var(--f-body);border-radius:999px;padding:1px 5px}
+.toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--app);padding:10px 16px;border-radius:999px;font-weight:600;font-size:.9rem;z-index:30;white-space:nowrap;max-width:calc(100% - 32px);overflow:hidden;text-overflow:ellipsis}
+.stubmsg{padding:24px 18px;text-align:center;color:var(--muted);background:var(--surface);border:1px solid var(--line);border-radius:var(--r);margin-top:14px}
+.stubmsg b{display:block;color:var(--ink);margin-bottom:4px}
+.cgrid{display:grid;gap:4px;align-items:center;min-width:300px}
+.cgrid .ch{font:600 .75rem var(--f-mono);color:var(--muted);text-align:center}
+.cgrid .job{font:500 .75rem var(--f-mono);line-height:1.1}
+.cgrid .job small{display:block;color:var(--faint);font-size:.62rem}
+.cell{all:unset;cursor:pointer;height:30px;border-radius:6px;background:var(--sunk);border:1px solid var(--line);font-size:.8rem;font-weight:700;color:var(--ink);text-align:center;line-height:30px;font-variant-numeric:tabular-nums}
+.cell.on{color:var(--accent-ink)}
+.cell.on{background:var(--accent);border-color:var(--accent)}
+.cell:disabled{cursor:default;opacity:.45;color:var(--muted)}
+.cell:focus-visible{outline:2px solid var(--accent)}
+.kind{font:600 .66rem var(--f-body);letter-spacing:.06em;text-transform:uppercase;color:var(--quest);border:1px solid var(--quest);border-radius:5px;padding:0 5px;margin-right:6px;vertical-align:1px}
+.leads{display:flex;flex-direction:column;gap:3px;margin-top:5px;font-size:.82rem}
+.nmbtn{all:unset;cursor:pointer;font-weight:600}
+.nextq{display:flex;align-items:center;gap:10px;padding:10px 12px;margin:0 -2px;border-radius:12px;background:var(--quest-soft)}
+.nextq .lbl{color:var(--quest)}
+.msqhead{position:sticky;top:-1px;z-index:2;background:var(--surface);padding-top:4px}
+.msqchips{display:flex;gap:6px;overflow-x:auto;padding:4px 0 10px;scrollbar-width:none}
+.msqchips .chip{flex:0 0 auto;padding:5px 10px;font-size:.78rem}
+.item.one{align-items:center;padding:9px 12px;gap:10px}
+.item.one .nmbtn{flex:1;min-width:0;line-height:1.25}
+.item.one .lk{flex:1;min-width:0;font-weight:600;color:var(--faint);cursor:pointer;all:unset;flex:1;line-height:1.25}
+.cc{font-size:.75rem;font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.qtag{font-size:.68rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--quest);white-space:nowrap}
+.feed{display:flex;flex-direction:column;gap:0}
+.feed .fh{display:flex;align-items:baseline;justify-content:space-between;padding:10px 12px 2px;font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.feed .fh button{all:unset;cursor:pointer;letter-spacing:0;text-transform:none;font-size:.78rem;color:var(--accent);font-weight:700}
+.fi{all:unset;box-sizing:border-box;cursor:pointer;display:flex;align-items:center;gap:10px;width:100%;padding:8px 12px}
+.fi .grow{flex:1;min-width:0}.fi .t{font-weight:600;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.fi .s{font-size:.78rem;color:var(--muted)}
+.fi .w{font-size:.75rem;font-weight:700;color:var(--muted);white-space:nowrap}
+.tiles.mini{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.tiles.mini .tile{padding:9px;min-height:0;grid-template-columns:1fr auto;gap:2px 4px}
+.tiles.mini .tile .tn{font-size:.8rem}
+.tiles.mini .ring{width:28px;height:28px}
+.tiles.mini .tile .ta{font-size:.7rem}
+.subgrp{all:unset;box-sizing:border-box;cursor:pointer;display:flex;align-items:center;gap:8px;width:100%;padding:9px 12px;border-top:1px solid var(--line);font-weight:700;font-size:.85rem}
+.subgrp .chev{transition:transform .15s}.subgrp[aria-expanded="true"] .chev{transform:rotate(90deg)}
+.subgrp .gc{margin-left:auto;font-size:.75rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.nmbtn:hover{text-decoration:underline}
+.chev{color:var(--faint);flex:none}
+.grp{all:unset;box-sizing:border-box;cursor:pointer;display:flex;align-items:center;gap:8px;width:100%;padding:12px}
+.grp .gn{font-weight:700;flex:1;min-width:0}
+.grp .gc{font:500 .8rem var(--f-mono);color:var(--muted)}
+.grp[aria-expanded="true"] .chev{transform:rotate(90deg)}
+.drill{all:unset;box-sizing:border-box;cursor:pointer;display:grid;grid-template-columns:1fr auto auto;gap:4px 10px;align-items:center;width:100%;padding:11px 12px;border-top:1px solid var(--line)}
+.drill:first-child{border-top:0}
+.btnrow{display:flex;gap:8px;margin-top:10px}
+.btnrow > *{flex:1}
+.toast .undo{all:unset;cursor:pointer;margin-left:12px;color:var(--accent);font-weight:800}
+.toast{pointer-events:auto}
+.danger{all:unset;cursor:pointer;font-size:.8rem;font-weight:700;padding:8px 12px;border-radius:8px;border:1px solid var(--line);color:var(--warn);text-align:center}
+.sheet.noanim{animation:none}
+.ctrl{display:flex;gap:4px;align-items:center}
+.tile{--cat:var(--accent)}
+:root[data-palette="outline"] .tile{border:2px solid var(--cat)}
+:root[data-palette="tint"] .tile{background:color-mix(in srgb,var(--cat) 13%,var(--surface));border-color:color-mix(in srgb,var(--cat) 40%,var(--line))}
+:root[data-palette="tint"] .tile .tn,:root[data-palette="outline"] .tile .tn{color:color-mix(in srgb,var(--cat) 70%,var(--ink))}
+:root:not([data-palette="single"]) .tile{--rc:var(--cat)}
+:root:not([data-palette="single"]) .kind{color:var(--kc,var(--quest));border-color:var(--kc,var(--quest))}
+.cell.tgt{box-shadow:inset 0 0 0 2px var(--quest)}
+.cell.pick{background:var(--quest-soft);box-shadow:inset 0 0 0 2px var(--quest)}
+.cell.pick.on{background:var(--accent)}
+.pickbar{background:var(--quest-soft);color:var(--quest);border-radius:var(--r);padding:12px;margin-top:10px;font-weight:600}
+.pal{all:unset;box-sizing:border-box;cursor:pointer;display:flex;align-items:center;gap:10px;width:100%;padding:10px;border-radius:10px;border:1px solid var(--line);margin-top:6px}
+.pal[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.sw4{display:flex;gap:3px}.sw4 i{width:14px;height:14px;border-radius:4px;display:block}
+:root.compact .item,:root.compact .jobrow,:root.compact .tm,:root.compact .ownrow{padding-block:6px}
+:root.compact .tile{min-height:68px;padding:9px}
+:root.compact h2.sh{margin:14px 0 6px}
+.setsec{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:4px 14px 12px;margin-top:12px}
+.setsec h3{font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:12px 0 2px}
+.confirm{grid-column:1/-1;background:var(--sunk);border-radius:9px;padding:10px;margin-top:6px;font-size:.88rem}
+.tm.off{opacity:.55}
+.shbtn{all:unset;box-sizing:border-box;cursor:pointer;display:flex;align-items:center;gap:6px;width:100%;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:20px 0 8px;font-weight:700}
+.shbtn .t{flex:1;min-width:0;display:flex;align-items:center;gap:4px}
+.shbtn .r{letter-spacing:0;text-transform:none;font-weight:600}
+.shbtn .chev{transition:transform .15s}
+.shbtn[aria-expanded="true"] .chev{transform:rotate(90deg)}
+:root.compact .shbtn{margin:14px 0 6px}
+.goldbar{background:var(--gold-soft);color:var(--gold)}
+.kind.gold{color:var(--gold)!important;border-color:var(--gold)!important}
+.qbtn.gold{color:var(--gold);border-color:var(--gold)}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+.pinbtn[aria-pressed="false"]{display:none}
+.sheet .pinbtn[aria-pressed="false"]{display:inline-flex}
+.holding{background:var(--sunk);transition:background .4s}
+
+.chain li.now{grid-template-columns:16px 1fr auto;align-items:center;color:var(--ink)}
+.chain li.now b{color:var(--quest)}
+.chain .qn{display:block}
+.chain .qm{display:block;color:var(--muted);font-size:.75rem}
+.qchk{all:unset;cursor:pointer;width:26px;height:26px;border-radius:7px;border:1.5px solid var(--quest);color:var(--quest);display:grid;place-items:center}
+.qchk svg{width:14px;height:14px}
+.item .body > .sub,.ownrow .body > .sub,.jobrow .sub,.drill .sub,.grp .sub{display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
+.sub.full{-webkit-line-clamp:unset;display:block}
+.gswhat{font-size:.8rem;color:var(--muted);padding:2px 14px 8px}
+.updatebar{all:unset;position:fixed;left:50%;transform:translateX(-50%);bottom:calc(76px + env(safe-area-inset-bottom));background:var(--accent);color:var(--accent-ink);font-weight:700;font-size:.85rem;padding:10px 16px;border-radius:999px;box-shadow:0 4px 14px rgba(0,0,0,.25);z-index:60;cursor:pointer}
+</style>
+</head>
+<body>
+
+<div class="app" id="app"></div>
+<div id="layer"></div>
+
+<script>
+(async () => {
+document.getElementById('app').innerHTML = '<div class="stubmsg" style="margin-top:38vh"><b>Loading game data</b>About 1 MB, the first time you open it.</div>';
+let DATA;
+try { DATA = await fetch('appdata.json').then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }); }
+catch (e) { document.getElementById('app').innerHTML = '<div class="stubmsg" style="margin-top:38vh"><b>Game data didn\'t load</b>Check your connection and reload the page.</div>'; return; }
+/* ================= reference data (sample) ================= */
+const EXP = {arr:['A Realm Reborn','ARR'],hw:['Heavensward','HW'],sb:['Stormblood','SB'],shb:['Shadowbringers','ShB'],ew:['Endwalker','EW'],dt:['Dawntrail','DT']};
+// Every Main Scenario quest in order (game data). Old milestone names like 'sb-yan1' are aliases for real quests.
+const MSQ = DATA.MSQ, ALIAS = DATA.ALIAS; const MI = new Map(MSQ.map((m,i)=>[m.id,i]));
+const mIdx = id => MI.get(ALIAS[id]||id) ?? -1;
+const M = id => MSQ[mIdx(id)];
+
+// Quests that unlock things. req = previous quest id, msq = story milestone that blocks it, lv = job level needed.
+const Q = {};
+Object.assign(Q, DATA.Q);  // real unlock quests and their prerequisite chains
+Object.entries(DATA.QX).forEach(([k,v]) => { if (Q[v]) Object.defineProperty(Q, k, {value:Q[v], enumerable:false}); });  // friendly names for the special gates (same quest object)
+let QSEQ = 1; setTimeout(()=>{},0);
+const DUTIES = DATA.DUTIES;
+const JOBS = DATA.JOBS;
+const RELIC = {n:'Zodiac',jobs:['PLD','WAR','WHM','SCH','MNK','DRG','NIN','BRD','BLM','SMN'],st:['Relic','Zenith','Atma','Animus','Novus','Nexus','Zodiac','Zeta']};
+const RS = {WHM:8,BRD:3,PLD:1};
+const DELIV = DATA.DELIV.map(c => ({...c, r: 0}));  // Custom Delivery clients
+const MOUNTS = [
+  ['ARR Extreme trials',[['Aithon','Ifrit'],['Xanthos','Garuda'],['Gullfaxi','Titan'],['Enbarr','Leviathan'],['Markab','Ramuh'],['Boreas','Shiva'],['Nightmare',"Ultima's Bane"],['Kirin','Own all seven above']],'arr'],
+  ['HW Extreme trials',[['White Lanner','Bismarck'],['Rose Lanner','Ravana'],['Round Lanner','Thordan'],['Warring Lanner','Sephirot'],['Dark Lanner','Nidhogg'],['Sophic Lanner','Sophia'],['Demonic Lanner','Zurvan'],['Firebird','Own all seven above']],'hw'],
+  ['Exchange rewards',[['Sample gemstone mount','Gemstone trader, Kholusia'],['Sample Gordias mount','Alexander parts exchange']],'shb'],
+  ['SB Extreme trials',[['Reveling Kamuy','Susano'],['Blissful Kamuy','Lakshmi'],['Legendary Kamuy','Shinryu'],['Auspicious Kamuy','Byakko'],['Lunar Kamuy','Tsukuyomi'],['Euphonious Kamuy','Suzaku'],['Hallowed Kamuy','Seiryu']],'sb'],
+];
+const DCOLL = DATA.DCOLL;
+const dColl = d => { const c = DCOLL[d.id]; if (!c) return []; return Array.isArray(c) ? c : Object.values(c).flat(); };
+const TITLES = [
+  ['Story & duties',[['the Liberator (sample)','Main story','sb'],['Savior of Doma (sample)','Main story','sb'],['Gordias Vanquisher (sample)','Alexander: Gordias (Savage)','hw']]],
+  ['Crafting & gathering',[['Master Carpenter (sample)','Crafting log','arr'],['Fisher of Note (sample)','Fishing log','arr']]],
+  ['Gold Saucer & PvP',[['Chocobo Champion (sample)','Chocobo Racing','arr'],['Card Shark (sample)','Triple Triad','arr']]],
+];
+const ACH = [['Battle',[['Sample achievement: clear 10 dungeons','Duties','arr'],['Sample achievement: clear 50 dungeons','Duties','arr']]],['Quests',[['Sample achievement: finish 100 sidequests','Quests','arr']]],['Exploration',[['Sample achievement: attune every ARR aetheryte','Exploration','arr']]]];
+const DYES = [['General-purpose dyes',[['Snow White Dye','Vendor','arr'],['Soot Black Dye','Vendor','arr'],['Pastel Pink Dye','Vendor','arr']]],['Special dyes',[['Pure White Dye','Special dye','arr'],['Jet Black Dye','Special dye','arr'],['Metallic Gold Dye','Special dye','arr']]]];
+const GLAM = [['Raid sets',[['Gordias set (sample)','Alexander: Gordias','hw'],['Deltascape set (sample)','Omega: Deltascape','sb']]],['Artifact sets',[['Lv 50 artifact set (sample)','Job quests','arr']]]];
+const COLLDATA = DATA.COLL;
+const OWN = new Set(DATA.OWN);
+const COLLS = Object.keys(DATA.COLL).map(k => [k, true, k==='Field Records' ? 'shb0' : undefined]);
+const orderedCats = () => (S.catOrder || CATS.map(c=>c.k)).map(k=>CATS.find(c=>c.k===k));
+const CATS = [
+  {k:'leves',n:'Leves',live:true},
+  {k:'jobs',n:'Jobs',live:true},{k:'duties',n:'Duties',live:true},{k:'hduties',n:'High-end duties',live:true},{k:'gear',n:'Gear & relics',live:true},{k:'ranks',n:'Ranks & reputation',live:true},
+  {k:'coll',n:'Collections',live:true},{k:'story',n:'Side stories',live:true},{k:'field',n:'Field ops & deep dungeons',live:true},{k:'craft',n:'Crafting & gathering',live:true},
+  {k:'life',n:'Lifestyle projects',live:true},{k:'explore',n:'Exploration',live:true},{k:'world',n:'Open world',live:true},{k:'shops',n:'Exchanges',live:true},{k:'games',n:'Gold Saucer',live:true},{k:'pvp',n:'PvP',live:true},{k:'pastimes',n:'Pastimes',live:true}
+];
+
+// Six hubs on the Activities tab; each opens a short list of its activities (Duties opens straight to its list)
+const HUBS = [
+  {k:'h-story', n:'Story & quests', cats:['story','ranks'], blurb:'Side stories, sidequests, deliveries and reputation'},
+  {k:'h-duties', n:'Duties', cats:['duties','hduties'], direct:'duties', blurb:'Dungeons, trials, raids and high-end duties'},
+  {k:'h-jobs', n:'Jobs & gear', cats:['jobs','craft','gear'], blurb:'Levels, job quests, crafting and gathering logs, Blue Mage and relics'},
+  {k:'h-coll', n:'Collections', cats:['coll','shops'], blurb:'Everything you can own, and the shops that sell it'},
+  {k:'h-world', n:'World', cats:['explore','world','leves','field'], extra:['zones','zone'], blurb:'Zones, hunts, FATEs, leves, treasure and field operations'},
+  {k:'h-life', n:'Life & games', cats:['life','games','pvp','pastimes'], blurb:'Lifestyle projects, Gold Saucer, PvP and pastimes'},
+];
+const hubOf = v => (HUBS.find(H => H.cats.includes(v) || (H.extra||[]).includes(v)) || {}).k;
+const orderedHubs = () => (S.hubOrder || HUBS.map(H=>H.k)).map(k => HUBS.find(H=>H.k===k));
+function hubStats(H){ return H.cats.map(catStats).reduce((a,s)=>({d:a.d+s.d, t:a.t+s.t, a:a.a+s.a, q:a.q+s.q}), {d:0,t:0,a:0,q:0}); }
+
+/* ================= state ================= */
+const PIN_DUTY = (DATA.DUTIES.find(d=>d.n==='Alexander - The Burden of the Father (Savage)')||DATA.DUTIES[0]).id;
+const S = {gq:'', gqAll:new Set(), recent:[], showLocked:new Set(), msqOpen:new Set(), focusAuto:false, big:new Set(), hub:null, hubOrder:null, hiddenHubs:new Set(),
+  tab:'home', view:'home', msq:mIdx('sb-yan1'), lastSeen:mIdx('sb-yan1'), seg:'todo', focus:'all', spoiler:true, labels:true, strict:false, theme:'system', h12:true, start:'home', compact:false, quiet:{on:false,from:'23:00',to:'08:00'}, chars:['Main'], char:0, armRet:null, custom:[{n:'FC Savage raid',time:'20:00',rep:'weekly',dow:2,date:'',lead:15,alarm:true}], addingRem:false, closed:new Set(), foldAll:false, reorder:false, catOrder:null, hiddenCats:new Set(), palette:'single', targets:{}, pick:null, tmpT:null, sheetOpen:null, open:new Set(), reg:null, regKeys:[], newIds:[],
+  pins:['zhloe',PIN_DUTY,'relic:BRD'], notes:{zhloe:'Weekly allowance used: 2 of 12', [PIN_DUTY]:'Final turn of Gordias Savage'},
+  collCat:null, ownFilter:'all', q:'',
+  timers:{
+    dailyDigest:{on:true, at:'10:00', items:['Duty roulettes','Allied society quests','Mini Cactpot']},
+    weeklyDigest:{on:true, at:'10:00', items:['Custom Deliveries','Wondrous Tails']},
+    gc:true, leves:{have:50, want:80, on:true},
+    retainers:[{n:'Retainer 1',end:null,task:null,active:true,alarm:true},{n:'Retainer 2',end:Date.now()+42*60e3,task:'Mining: Cobalt Ore',active:true,alarm:true},{n:'Retainer 3',end:null,task:null,active:false,alarm:true}],
+    squadron:{end:Date.now()+5*3600e3+1200e3, alarm:true}
+  }
+};
+
+/* ================= helpers ================= */
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const highLv = () => Math.max(...JOBS.flatMap(([,js])=>js.map(j=>j[2])));
+const msqDone = id => mIdx(id) <= S.msq;
+const xtag = x => `<span class="xtag" style="color:var(--x-${x})">${EXP[x][1]}</span>`;
+const inFocus = x => S.focus==='all' || S.focus===x;
+
+/* Unlock chain: walks quest -> prerequisite quest ... -> story milestone. Returns steps (first step to do first) and status. */
+function chainFor(qid){
+  const steps = []; let cur = qid, guard = 0, msqBlock = null;
+  while (cur && guard++ < 20){
+    const q = Q[cur]; if (q.done) break;
+    steps.unshift({type:'quest', id:cur, q});
+    if (q.msq && !msqDone(q.msq)) msqBlock = q.msq;
+    cur = q.req;
+  }
+  // story requirement: the deepest unfinished quest's milestone, or any milestone up the chain
+  if (msqBlock) steps.unshift({type:'msq', id:msqBlock});
+  const lvNeed = steps.filter(s=>s.type==='quest' && s.q.lv).map(s=>s.q.lv).reduce((a,b)=>Math.max(a,b),0);
+  if (lvNeed > highLv()) steps.unshift({type:'lv', lv:lvNeed});
+  return {steps, msqBlock, lvBlock: lvNeed > highLv()};
+}
+/* Status: done | prog | avail | quest (story clear, needs quest chain) | locked (story or level blocks) */
+function dStatus(d){
+  if (d.msq && !msqDone(d.msq)) return 'locked';
+  if (d.q){ const c = chainFor(d.q); if (c.steps.length){ return (c.msqBlock || c.lvBlock) ? 'locked' : 'quest'; } }
+  if (d.turns){ const n = d.td.filter(Boolean).length; return n===d.turns.length?'done':n?'prog':'avail'; }
+  return d.done ? 'done' : 'avail';
+}
+function chainHTML(qid, direct){
+  const steps = [];
+  if (direct) steps.push({type:'msq', id:direct});
+  else steps.push(...chainFor(qid).steps);
+  let firstOpen = true;
+  return `<ul class="chain">${steps.map(s => {
+    if (s.type==='msq'){ const m = M(s.id); const away = mIdx(s.id) - S.msq; firstOpen = false;
+      return `<li class="msq"><span>Story: <b>${S.spoiler?'???':esc(m.n)}</b>${S.labels?'':` · patch ${m.patch}`}${away>0&&!S.spoiler&&!S.labels&&!S.strict?` · ${away} step${away>1?'s':''} ahead of you`:''}</span></li>`; }
+    if (s.type==='lv'){ firstOpen = false; return `<li class="msq"><span>Any job to <b>Lv ${s.lv}</b> · your highest is ${highLv()}</span></li>`; }
+    const now = firstOpen; firstOpen = false;
+    if (now) return `<li class="now"><span><span class="qn">Next: <b>${esc(s.q.n)}</b></span><span class="qm">${esc(s.q.w)}${s.q.lv?` · Lv ${s.q.lv}`:''}</span></span><button class="qchk" data-qdone="${s.id}" aria-label="Mark ${esc(s.q.n)} done">${TICK}</button></li>`;
+    return `<li><span><b>${esc(s.q.n)}</b> · ${esc(s.q.w)}${s.q.lv?` · Lv ${s.q.lv}`:''}</span></li>`;
+  }).join('')}</ul>`;
+}
+const ICON = {
+  done:'<svg class="st" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="var(--accent)"/><path d="M7 12.5l3.2 3.2L17 9" fill="none" stroke="var(--accent-ink)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  avail:'<svg class="st" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="var(--muted)" stroke-width="2"/></svg>',
+  quest:'<svg class="st" viewBox="0 0 24 24"><rect x="4.5" y="4.5" width="15" height="15" rx="3" transform="rotate(45 12 12)" fill="var(--quest)"/><path d="M12 8v8M8 12h8" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>',
+  locked:'<svg class="st" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2.5" fill="var(--lock)"/><path d="M8.5 10.5V8a3.5 3.5 0 017 0v2.5" fill="none" stroke="var(--lock)" stroke-width="2.2"/></svg>',
+};
+ICON.prog = (d,t) => { const a=2*Math.PI*9,f=a*d/t; return `<svg class="st" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="var(--line)" stroke-width="3.5"/><circle cx="12" cy="12" r="9" fill="none" stroke="var(--accent)" stroke-width="3.5" stroke-dasharray="${f} ${a}" transform="rotate(-90 12 12)" stroke-linecap="round"/></svg>`; };
+const small = s => s.replace('class="st"','width="14" height="14"');
+const PIN = on => `<svg width="18" height="18" viewBox="0 0 24 24" fill="${on?'currentColor':'none'}" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M9 3h6l-1 6 4 4H6l4-4z"/><path d="M12 13v8" stroke-linecap="round"/></svg>`;
+const BELL = on => `<svg width="18" height="18" viewBox="0 0 24 24" fill="${on?'currentColor':'none'}" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 16V11a6 6 0 0112 0v5l2 2H4z"/><path d="M10 20a2 2 0 004 0" fill="none"/></svg>`;
+const TICK = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-7"/></svg>';
+const BACK = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>';
+const GEAR = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg>';
+const ring = (d,t) => { const r=15,a=2*Math.PI*r,f=t?a*d/t:0; return `<svg class="ring" viewBox="0 0 38 38"><circle cx="19" cy="19" r="${r}" fill="none" stroke="var(--line)" stroke-width="4"/><circle cx="19" cy="19" r="${r}" fill="none" stroke="var(--rc,var(--accent))" stroke-width="4" stroke-dasharray="${f} ${a}" transform="rotate(-90 19 19)" stroke-linecap="round"/><text x="19" y="22.5" text-anchor="middle">${t?Math.round(d*100/t):0}</text></svg>`; };
+const ladder = (id,r,max) => `<div class="ladder">${Array.from({length:max},(_,i)=>`<button class="rung ${i<r?'on':''}" data-rank="${id}:${i+1}" aria-label="Set rank ${i+1}"></button>`).join('')}<span class="ladlbl">Rank ${r}/${max}</span></div>`;
+const turnChips = d => `<div class="turns">${d.turns.map((t,i)=>`<button class="turn" aria-pressed="${!!d.td[i]}" data-turn="${d.id}:${i}">${t}</button>`).join('')}</div>`;
+
+/* reset times (real FFXIV schedule): daily 15:00 UTC, weekly Tue 08:00 UTC, GC 20:00 UTC, leves +3 at 00:00/12:00 UTC */
+function nextUTC(h, dow){ const n = new Date(); const d = new Date(Date.UTC(n.getUTCFullYear(),n.getUTCMonth(),n.getUTCDate(),h));
+  if (dow === undefined){ if (d <= n) d.setUTCDate(d.getUTCDate()+1); return d; }
+  while (d.getUTCDay() !== dow || d <= n) d.setUTCDate(d.getUTCDate()+1); return d; }
+const nextLeve = () => { const a = nextUTC(0), b = nextUTC(12); return a < b ? a : b; };
+const TREQ = {'Duty roulettes':'arr0','Allied society quests':'arr2','Mini Cactpot':'arr0','Hunt bills':'arr0','Custom Deliveries':'sb-kug0','Wondrous Tails':'hw0','Faux Hollows':'ew0','Raid lockouts':'arr0','Leves':'arr0','Retainers':'arr0','Squadron':'arr4','Grand Company':'arr0'};
+const confirmRet = (r,i) => `<div class="confirm"><b>Remove ${esc(r.n)}?</b> Its name and any running venture timer will be deleted.<div class="btnrow"><button class="danger" data-delretok="${i}">Remove</button><button class="ghost" data-delretno>Keep</button></div></div>`;
+const DOW = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+function nextOcc(c){ const [hh,mm] = c.time.split(':').map(Number); const now = new Date();
+  if (c.rep==='once'){ if (!c.date) return null; const [y,mo,d] = c.date.split('-').map(Number); return new Date(y,mo-1,d,hh,mm); }
+  const d = new Date(now.getFullYear(),now.getMonth(),now.getDate(),hh,mm);
+  if (c.rep==='daily'){ if (d <= now) d.setDate(d.getDate()+1); return d; }
+  while (d.getDay()!==c.dow || d <= now) d.setDate(d.getDate()+1); return d; }
+const repLabel = c => c.rep==='daily' ? 'Every day' : c.rep==='weekly' ? `Every ${DOW[c.dow]}` : (c.date ? new Date(c.date+'T00:00').toLocaleDateString([], {weekday:'short', month:'short', day:'numeric'}) : 'No date');
+const tOK = n => !TREQ[n] || msqDone(TREQ[n]);
+const fmtWhen = d => d.toLocaleString([], {weekday:'short', hour:'numeric', minute:'2-digit', hour12:S.h12});
+const fmtLeft = ms => { if (ms <= 0) return 'Ready'; const m = Math.round(ms/60e3), h = Math.floor(m/60), dd = Math.floor(h/24);
+  return dd ? `${dd}d ${h%24}h` : h ? `${h}h ${String(m%60).padStart(2,'0')}m` : `${m}m`; };
+const localAt = h => nextUTC(h).toLocaleTimeString([], {hour:'numeric', minute:'2-digit', hour12:S.h12});
+
+/* ================= screens ================= */
+function topbar(title, back){ return `<div class="top">${back?`<button class="back" data-back aria-label="Back">${BACK}</button>`:''}<h1>${title}</h1><button class="iconbtn" data-go="settings" aria-label="Settings">${GEAR}</button></div>`; }
+function focusChips(){ return `<div class="chips" role="group" aria-label="Expansion focus">${[['all','All'],...Object.entries(EXP).map(([k,v])=>[k,v[1]])].map(([k,s])=>`<button class="chip" data-focus="${k}" aria-pressed="${S.focus===k}"><span class="dot" style="background:var(--x-${k})"></span>${s}${k===MSQ[S.msq].x?' <small style="opacity:.75">· you</small>':''}</button>`).join('')}</div>`; }
+function unlocksOf(qid){
+  const leads = q0 => { let cur = q0, g = 0; while (cur && g++ < 20){ if (cur===qid) return true; cur = Q[cur].req; } return false; };
+  const out = [];
+  DUTIES.forEach(d => { if (d.q && leads(d.q)) out.push({n:d.n, kind:KIND[d.g]}); });
+  JOBS.forEach(([,js]) => js.forEach(j => { if (j[3] && leads(j[3])) out.push({n:j[1], kind:'Job'}); }));
+  EXTRA_UNLOCKS.forEach(([q,n,k]) => { if (leads(q)) out.push({n, kind:k}); });
+  Object.entries(Q).forEach(([id,q]) => { if (q.req===qid) out.push({n:q.n, kind:'Quest'}); });
+  return out;
+}
+const leadsHTML = list => list.length ? `<div class="leads">${list.map(u=>`<span><span class="kind" style="--kc:var(--c-${KCAT[u.kind]||'duties'})">${esc(u.kind)}</span>${esc(u.n)}</span>`).join('')}</div>` : '';
+function availableQuests(){
+  const seen = new Map();
+  const add = (qid, n, kind) => { const c = chainFor(qid); if (!c.steps.length || c.msqBlock || c.lvBlock) return; const first = c.steps[0];
+    if (!seen.has(first.id)) seen.set(first.id, {q:first.q, id:first.id, unlocks:[]}); seen.get(first.id).unlocks.push({n,kind}); };
+  DUTIES.forEach(d => { if (d.q && !(d.msq && !msqDone(d.msq))) add(d.q, d.n, KIND[d.g]); });
+  JOBS.forEach(([,js]) => js.forEach(j => { if (j[3]) add(j[3], j[1], 'Job'); }));
+  EXTRA_UNLOCKS.forEach(([q,n,k]) => add(q,n,k));
+  const gold = new Set(goldQuests().map(g=>g.id));
+  return [...seen.values()].filter(v => !gold.has(v.id));
+}
+function catStats(k){
+  const f = S.focus;
+  if (k==='leves'){ const L = LEVES.filter(l=>inFocus(l[5])), o = L.filter(l=>msqDone(XGATE[l[5]])), d = o.filter(l=>C.has('leve:'+l[0])).length; return {d, t:L.length, a:o.length-d, q:0}; }
+  if (k==='duties'||k==='hduties'){ const L = DUTIES.filter(d=>inFocus(d.x) && HE.has(d.g)===(k==='hduties')); return {d:L.filter(x=>dStatus(x)==='done').length,t:L.length,a:L.filter(x=>['avail','prog'].includes(dStatus(x))).length,q:L.filter(x=>dStatus(x)==='quest').length}; }
+  if (k==='jobs'){ let d=0,t=0,a=0,q=0; const cap = bandCap(); JOBS.forEach(([,js])=>js.forEach(j=>{ if (!inBand(j[0])) return; t++; if (j[2]>=cap) d++; const st = jobState(j); if (st==='quest') q++; else if (st==='open' && j[2]<cap) a++; })); return {d,t,a,q}; }
+  if (k==='gear'){ if (!inFocus('arr')) return {d:0,t:0,a:0,q:0}; const d = RELIC.jobs.filter(j=>RS[j]===8).length; return {d,t:RELIC.jobs.length,a:RELIC.jobs.length-d,q:0}; }
+  if (k==='ranks'){ const L = DELIV.filter(x=>inFocus(x.x)); const o = L.filter(x=>x.msq ? msqDone(x.msq) : !chainFor(x.q).steps.length); const extra = inFocus('arr') ? 2 : 0; return {d:o.filter(x=>x.r===5).length,t:L.length+extra,a:o.length+extra,q:0}; }
+  if (k==='coll'){ const all = Object.values(COLLDATA).flatMap(gs=>gs.flatMap(([,ms,gx])=>ms.map(m=>[m[0],m[2]||gx]))).filter(m=>inFocus(m[1])); return {d:all.filter(m=>OWN.has(m[0])).length,t:all.length,a:all.filter(m=>!OWN.has(m[0])).length,q:0}; }
+  if (k==='shops'){ const L = SHOPS.filter(s=>inFocus(s.x) && msqDone(s.msq)); const all = L.flatMap(s=>s.items); return {d:all.filter(i=>OWN.has(i[0])).length, t:all.length, a:all.filter(i=>!OWN.has(i[0])).length, q:0}; }
+  if (k==='explore'){ const its = EXZ.filter(z=>inFocus(z[2])).flatMap(z=>msqDone(z[3])?exItems(z):[]); const all = EXZ.filter(z=>inFocus(z[2])).flatMap(exItems); const d = its.filter(i=>C.has(i[0])).length; return {d, t:all.length, a:its.length-d, q:0}; }
+  if (k==='story'){ const zs = ZONES.filter(z=>inFocus(z[4])); const t = zs.reduce((a,z)=>a+z[3],0); const d = zs.reduce((a,z)=>a+z[5].filter((_,i)=>C.has(`zq:${z[0]}:${i}`)).length,0); const o = zs.filter(z=>msqDone(z[2])).reduce((a,z)=>a+z[3],0); return {d, t, a:o-d, q:0}; }
+  const base = {explore:[30,120,12,0],world:[20,90,15,0],pastimes:[1,6,5,0],story:[12,40,5,2],field:[3,40,4,1],craft:[118,512,30,0],life:[5,30,3,1],games:[9,40,4,1],pvp:[6,30,3,0]}[k];
+  const share = f==='all' ? 1 : {arr:.3,hw:.16,sb:.16,shb:.13,ew:.13,dt:.12}[f];
+  const [d,t,a,q] = base.map((v,i)=> i===3 ? (f==='all'||f==='sb'?v:0) : Math.round(v*share));
+  return {d,t,a,q};
+}
+function storyCard(){
+  const m = MSQ[S.msq], nx = MSQ[S.msq+1];
+  return `<div class="panel story" style="flex-direction:column;align-items:stretch;gap:8px">
+    <div style="display:flex;gap:10px;align-items:center"><span class="grow"><span class="lbl">Last story quest finished</span><br><span class="val">${esc(m.n)}</span><br><span class="sub">${S.labels?esc(m.chap):`Patch ${m.patch} · ${esc(m.chap)}`}</span></span>${xtag(m.x)}</div>
+    ${nx ? `<div class="nextq"><span class="grow"><span class="lbl">Next</span><br><b>${esc(nx.n)}</b>${nx.x!==m.x||nx.chap!==m.chap?`<span class="sub"> · ${esc(nx.chap)}</span>`:''}</span>
+      <button class="advance" data-msqstep="1">Finished it</button></div>` : '<div class="sub">You\'re caught up with the story.</div>'}
+    <div style="display:flex;gap:8px"><button class="ghost" data-sheet="msq" style="flex:1">Find a quest</button>${S.msq>0?`<button class="ghost" data-msqstep="-1">Back one</button>`:''}</div></div>`;
+}
+function goalLabel(id){
+  if (META[id]) return META[id].t;
+  const d = DUTIES.find(x=>x.id===id); if (d) return d.n;
+  const c = DELIV.find(x=>x.id===id); if (c) return c.n;
+  if (id.startsWith('relic:')) return 'Zodiac weapon · '+id.slice(6);
+  if (id.startsWith('job:')) return id.slice(4)+' level';
+  return id;
+}
+function nextUp(){
+  const now = Date.now(), sec = [];
+  const due = [['Daily reset', nextUTC(15)], ['Weekly reset', nextUTC(8,2)], ['Grand Company supply', nextUTC(20)]].filter(([,d]) => d-now < 6*3600e3).map(([n,d]) => ({t:n, s:'Resets', w:'in '+fmtLeft(d-now), go:'timers'}));
+  S.timers.retainers.filter(r=>r.active && r.end && r.end-now < 2*3600e3).forEach(r => due.push({t:r.n+' returns', s:r.task||'Venture', w:r.end<=now?'Ready':'in '+fmtLeft(r.end-now), go:'timers'}));
+  if (due.length) sec.push(['Due soon', due, 'timers', 'Timers']);
+  const goals = S.pins.slice(0,3).map(id => ({t:goalLabel(id), s:S.notes[id]||'Pinned goal', go:'goals'}));
+  if (goals.length) sec.push(['Your goals', goals, 'goals', `All ${S.pins.length}`]);
+  const aq = availableQuests();
+  if (aq.length) sec.push(['Quests you can take', aq.slice(0,3).map(a => ({t:a.q.n, s:'Opens '+a.unlocks.map(u=>u.n).slice(0,2).join(', ')+(a.unlocks.length>2?` +${a.unlocks.length-2}`:''), w:a.q.w, go:'quests'})), 'quests', `All ${aq.length}`]);
+  const ORD = ['Dungeons','Trials','Raids','Extreme trials','High-end raids','Guildhests','Variant & criterion','Deep dungeons','Treasure dungeons','Field operations','Ultimate raids'];
+  const ready = DUTIES.filter(d => inFocus(d.x) && dStatus(d)==='avail').sort((a,b) => ORD.indexOf(a.g)-ORD.indexOf(b.g));
+  if (ready.length) sec.push(['Ready to run', ready.slice(0,4).map(d => ({t:d.n, s:KIND[d.g]||d.g, w:dColl(d).length?`${dColl(d).filter(c=>OWN.has(c[0])).length}/${dColl(d).length}`:'', duty:d.id})), 'duties', `All ${ready.length}`]);
+  return sec;
+}
+function home(){
+  const m = MSQ[S.msq];
+  const secs = nextUp().map(([title, rows, go, more]) => `<h2 class="sh">${title} <button class="link" ${['quests','goals','timers'].includes(go)?`data-tab="${go}"`:`data-go="${go}"`}>${more}</button></h2>
+    <div class="card">${rows.map(r => `<button class="fi" ${r.duty?`data-duty="${r.duty}"`:`data-tab="${r.go}"`}><span class="grow"><span class="t">${esc(r.t)}</span><span class="s">${esc(r.s)}</span></span>${r.w?`<span class="w">${esc(r.w)}</span>`:''}</button>`).join('')}</div>`).join('');
+  const welcome = S.onboard ? `<div class="panel" style="flex-direction:column;align-items:stretch;gap:8px;border-color:var(--accent)"><b style="font-size:1.05rem">Welcome to your Completionist Log</b>
+      <span class="sub" style="font-size:.88rem">Start by setting the last story quest you finished. Everything else unlocks from there, and you can tick things off as you go.</span>
+      <div class="btnrow"><button class="advance" data-msqpick>Set my story position</button><button class="ghost" data-backup="import">Restore a backup</button></div>
+      <button class="link" data-onboarddone style="align-self:flex-start">I'm just starting out</button></div>` : '';
+  return `${topbar('Completionist Log')}${welcome}
+    ${storyCard()}
+    ${goldQuests().length?`<button class="panel goldbar" data-tab="quests" style="margin-top:8px;border-color:transparent"><svg width="20" height="20" viewBox="0 0 24 24"><rect x="4.5" y="4.5" width="15" height="15" rx="3" transform="rotate(45 12 12)" fill="var(--gold)"/><path d="M12 8v8M8 12h8" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg><span class="grow val">${goldQuests().length} quest${goldQuests().length>1?'s':''} open something new</span></button>`:''}
+    ${secs || '<div class="stubmsg"><b>Nothing waiting</b>Pin a goal or move your story forward.</div>'}
+    <p class="sample center">Game data: patch 7.57 · progress saved on this phone${S.savedAt?` · last saved ${new Date(S.savedAt).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'})}`:''}</p>`;
+}
+/* one search across the whole app; story-locked things stay hidden while spoilers are on */
+let GIDX = null;
+const lockedNow = l => !!l && (l.msq ? !msqDone(l.msq) : (() => { const c = chainFor(l.q); return !!c.msqBlock || !!c.lvBlock; })());
+function gIndex(){
+  if (GIDX) return GIDX; const I = [];
+  CATS.filter(c=>c.live).forEach(c => I.push({g:'Screens', n:c.n, s:(HUBS.find(H=>H.cats.includes(c.k))||{}).n||'', act:`data-go="${c.k}"`}));
+  I.push({g:'Screens', n:'Everything in a zone', s:'World', act:'data-go="zones"'});
+  EXZ.forEach(z => I.push({g:'Zones', n:z[1], s:EXP[z[2]][0], x:z[2], lock:{msq:z[3]}, act:`data-zone="${esc(z[1])}"`}));
+  DUTIES.forEach(d => I.push({g:'Duties', n:d.n, s:d.g, x:d.x, duty:d}));
+  Object.entries(Q).forEach(([id,q]) => I.push({g:'Unlock quests', n:q.n, s:`${q.w||''}${q.lv?' · Lv '+q.lv:''}`, x:q.x, lock:{q:id}, qid:id}));
+  COLLS.forEach(([cat,,gate]) => (COLLDATA[cat]||[]).forEach(([grp,ms,gx]) => ms.forEach(m => I.push({g:cat, n:m[0], s:m[1], x:m[2]||gx, lock:gate?{msq:gate}:null, own:m[0]}))));
+  const zx = Object.fromEntries(EXZ.map(z=>[z[1],z]));
+  Object.entries(DATA.ZQ).forEach(([zn,qs]) => qs.forEach((n,i) => I.push({g:'Sidequests', n, s:zn, x:(zx[zn]||[])[2], lock:zx[zn]?{msq:zx[zn][3]}:null, c:`zs:${zn}:${i}`})));
+  Object.entries(DATA.ZF).forEach(([zn,fs]) => fs.forEach((f,i) => I.push({g:'FATEs', n:f.split(' · ')[0], s:zn+' · '+f.split(' · ').slice(1).join(' · '), x:(zx[zn]||[])[2], lock:zx[zn]?{msq:zx[zn][3]}:null, c:`zf:${zn}:${i}`})));
+  Object.entries(HUNTS).forEach(([x,ms]) => ms.forEach(([m,d]) => I.push({g:'Elite marks', n:m, s:d, x, lock:HUNTGATE[x]?{msq:HUNTGATE[x]}:null, c:`hunt:${m}`})));
+  DATA.GS.forEach(g => { const gl = g.q?{q:g.q}:null; (g.games||[]).forEach(n => I.push({g:'Gold Saucer', n, s:'GATE · '+g.n, lock:gl, c:'gate-'+n})); });
+  LEVES.forEach(l => I.push({g:'Leves', n:l[1], s:`${l[3]} · Lv ${l[2]} · ${l[4]}`, x:l[5], lock:XGATE[l[5]]?{msq:XGATE[l[5]]}:null, c:'leve:'+l[0]}));
+  SHOPS.forEach(sh => sh.items.forEach(it => I.push({g:'Shop items', n:it[0], s:`${sh.n} · ${fmtN(it[2])} ${(COMPS[it[3]]||{}).n||''}`, x:sh.x, lock:sh.msq?{msq:sh.msq}:null, act:`data-shop="${sh.id}"`})));
+  I.forEach(e => e.k = (e.n+' '+(e.s||'')).toLowerCase());
+  return GIDX = I;
+}
+const G_ORDER = ['Screens','Zones','Duties','Unlock quests','Gold Saucer','Achievements','Sidequests','FATEs','Leves','Elite marks','Shop items'];
+function gResult(e){
+  if (e.duty) return dutyRow(e.duty);
+  if (e.qid){ return lockCard(e.n, e.x, {q:e.qid}) || `<div class="item">${ICON.done}<div class="body"><div class="nm">${esc(e.n)}</div><div class="sub">${esc(e.s)}</div></div></div>`; }
+  if (e.own) return `<div class="ownrow"><button class="own" role="checkbox" aria-checked="${OWN.has(e.own)}" data-own="${esc(e.own)}" aria-label="Own ${esc(e.own)}">${TICK}</button><div class="body"><div class="nm">${esc(e.n)}${e.x?xtag(e.x):''}</div><div class="sub">${esc(e.s)}</div></div></div>`;
+  if (e.c) return box(e.c, e.n, e.s);
+  return `<button class="drill" ${e.act}><span><b>${esc(e.n)}</b><div class="sub">${esc(e.s)}</div></span><span></span>${CHEV}</button>`;
+}
+function gSearch(){
+  const words = S.gq.trim().toLowerCase().split(/\s+/); let hidden = 0;
+  const hits = gIndex().filter(e => words.every(w => e.k.includes(w)) && (!e.x || inFocus(e.x)) && (!S.spoiler || !(e.duty ? dStatus(e.duty)==='locked' : lockedNow(e.lock)) || (hidden++, false)));
+  const groups = {}; hits.forEach(e => (groups[e.g] = groups[e.g] || []).push(e));
+  const order = Object.keys(groups).sort((a,b) => { const i = G_ORDER.indexOf(a), j = G_ORDER.indexOf(b); return (i<0?4.5:i) - (j<0?4.5:j); });
+  if (!hits.length) return `<div class="stubmsg"><b>Nothing found</b>${hidden?`${hidden} match${hidden>1?'es':''} open later in the story.`:'Try another word.'}</div>`;
+  return order.map(g => { const es = groups[g], all = S.gqAll.has(g), shown = all ? es : es.slice(0,6);
+    return `<h2 class="sh">${esc(g)} <span>${es.length}</span></h2><div class="card">${shown.map(gResult).join('')}${es.length>6?`<button class="subgrp" data-gqall="${esc(g)}"><span>${all?'Show fewer':`Show all ${es.length}`}</span></button>`:''}</div>`; }).join('')
+    + (hidden ? `<p class="sample">${hidden} more match${hidden>1?'es':''} open later in the story.</p>` : '');
+}
+function recentRow(){
+  if (!S.recent.length) return '';
+  return `<h2 class="sh">Recent</h2><div class="chips" style="flex-wrap:wrap">${S.recent.map((r,i)=>`<button class="chip" data-recent="${i}">${esc(r.label)}</button>`).join('')}</div>`;
+}
+function activities(){
+  const search = `<input class="search" id="gq" type="search" placeholder="Search duties, minions, FATEs…" value="${esc(S.gq)}" aria-label="Search everything">`;
+  if (S.gq.trim().length >= 2) return `${topbar('Activities')}${search}${focusChips()}${gSearch()}`;
+  return `${topbar('Activities')}${search}${recentRow()}${focusChips()}
+    <h2 class="sh">Hubs <button class="link" data-reorder>${S.reorder?'Done':'Rearrange'}</button></h2>
+    ${S.reorder ? `<div class="card">${orderedHubs().map((H,i,a)=>`<div class="item" style="align-items:center"><span class="dot" style="width:10px;height:10px;background:var(--c-${H.cats[0]})"></span><b class="body" style="${S.hiddenHubs.has(H.k)?'opacity:.45':''}">${H.n}${S.hiddenHubs.has(H.k)?' <span class="sub" style="display:inline">· hidden</span>':''}</b>
+        <button class="ghost" style="padding:5px 9px" data-hidehub="${H.k}">${S.hiddenHubs.has(H.k)?'Show':'Hide'}</button>
+        <button class="sbtn" data-mvhub="${H.k}|-1" ${i===0?'disabled style="opacity:.3"':''} aria-label="Move ${H.n} up">↑</button><button class="sbtn" data-mvhub="${H.k}|1" ${i===a.length-1?'disabled style="opacity:.3"':''} aria-label="Move ${H.n} down">↓</button></div>`).join('')}</div>
+      <div class="btnrow"><button class="ghost" data-resethubs>Reset to default</button><button class="advance" data-reorder>Done</button></div>` :
+    `<div class="tiles">${orderedHubs().filter(H=>!S.hiddenHubs.has(H.k)).map(H=>{ const s = hubStats(H);
+      return `<button class="tile" data-hub="${H.k}" style="--cat:var(--c-${H.cats[0]})"><span class="tn">${H.n}</span>${ring(s.d,s.t)}<span class="ta"><b>${fmtN(s.a)}</b> to do${s.q?` · <span class="tq">${s.q} need a quest</span>`:''}</span></button>`; }).join('')}</div>${S.hiddenHubs.size?`<p class="sample center">${S.hiddenHubs.size} hidden · <button class="link" data-reorder>Manage</button></p>`:''}`}`;
+}
+function zoneParts(name){
+  const z = EXZ.find(e=>e[1]===name), x = z ? z[2] : 'arr', parts = [];
+  if (z) parts.push(['Aetherytes and map', exItems(z).filter(i=>/:ae:|:map$/.test(i[0]))], ['Sightseeing log', exItems(z).filter(i=>/:v\d+$/.test(i[0]))], ['Aether currents', exItems(z).filter(i=>/:c\d+$/.test(i[0]))]);
+  parts.push(['Sidequests', (DATA.ZQ[name]||[]).map((n,i)=>[`zs:${name}:${i}`, n, 'Sidequest'])]);
+  parts.push(['FATEs', (DATA.ZF[name]||[]).map((n,i)=>[`zf:${name}:${i}`, n.split(' · ')[0], n.split(' · ').slice(1).join(' · ')])]);
+  parts.push(['Elite marks', (HUNTS[x]||[]).filter(([,d])=>d.startsWith(name+' ·')).map(([m,d])=>[`hunt:${m}`, m, d.split(' · ').slice(1).join(' · ')||'S rank'])]);
+  parts.push(['Fishing holes', ((FISH[x]||{})[name]||[]).map(hh=>[`fish:${x}:${name}:${hh}`, hh, 'Fishing hole'])]);
+  return {z, x, parts: parts.filter(p=>p[1].length), shops: SHOPS.filter(s=>s.w.startsWith(name+' ('))};
+}
+function zones(){
+  const ents = EXZ.map(z => ({name:z[1], x:z[2], lock:{msq:z[3]}, html:()=>{ const {parts} = zoneParts(z[1]); const all = parts.flatMap(p=>p[1]); const d = all.filter(i=>C.has(i[0])).length;
+    return `<button class="drill" data-zone="${esc(z[1])}"><span><b>${esc(z[1])}</b><div class="sub">${d} of ${all.length} done</div></span><span class="cd">${all.length?Math.round(d*100/all.length):0}%</span>${CHEV}${bar(d,all.length)}</button>`; }}));
+  return `${topbar('Everything in a zone',true)}${focusChips()}${XKEYS.map(x => sect(`${EXP[x][0]} zones`, ents.filter(e=>e.x===x), 'tap a zone')).join('')}`;
+}
+function zoneView(){
+  const {x, parts, shops: sh} = zoneParts(S.zone); const all = parts.flatMap(p=>p[1]); const d = all.filter(i=>C.has(i[0])).length;
+  return `${topbar(esc(S.zone),true)}
+    <div class="panel"><span class="grow"><span class="lbl">This zone</span><br><span class="val">${d} of ${all.length} done</span></span>${xtag(x)}</div>
+    ${parts.map(([t,items]) => { const key = 'zone:'+S.zone+':'+t; if (items.length > 12) S.big.add(key); const dn = items.filter(i=>C.has(i[0])).length;
+      return secHead(t, `${dn} / ${items.length}`, key) + (isClosed(key) ? '' : `<div class="card">${items.map(([k,n,s])=>box(k,n,s)).join('')}</div>`); }).join('')}
+    ${sh.length ? secHead('Shops', sh.length, 'zone:'+S.zone+':shops') + (isClosed('zone:'+S.zone+':shops') ? '' : `<div class="card">${sh.map(s=>`<button class="drill" data-shop="${s.id}"><span><b>${esc(s.n)}</b><div class="sub">${esc(s.type)} · ${s.items.length-missingOf(s).length} of ${s.items.length} owned</div></span><span></span>${CHEV}</button>`).join('')}</div>`) : ''}`;
+}
+function hub(){
+  const H = HUBS.find(x=>x.k===S.hub);
+  const rows = H.cats.map(k => { const c = CATS.find(x=>x.k===k), s = catStats(k);
+    return `<button class="drill" data-go="${k}" style="--rc:var(--c-${k})"><span><b>${c.n}</b><div class="sub">${fmtN(s.a)} to do${s.q?` · <span style="color:var(--quest)">${s.q} need a quest</span>`:''} · ${fmtN(s.d)} of ${fmtN(s.t)} done</div></span>${ring(s.d,s.t)}${CHEV}</button>`; }).join('');
+  const extra = H.k==='h-world' ? `<button class="drill" data-go="zones"><span><b>Everything in a zone</b><div class="sub">Pick a zone: its quests, vistas, currents, FATEs, marks, shops and fishing holes on one screen</div></span><span></span>${CHEV}</button>` : '';
+  return `${topbar(H.n,true)}${focusChips()}<p class="sample" style="padding-top:0">${H.blurb}</p><div class="card">${rows}${extra}</div>`;
+}
+function dutyRow(d){
+  const st = dStatus(d), L = st==='locked', n = d.turns ? d.td.filter(Boolean).length : 0;
+  const icon = st==='prog' ? ICON.prog(n,d.turns.length) : ICON[st];
+  const name = L && S.spoiler ? '???' : esc(d.n);
+  const cl = dColl(d), co = cl.filter(c=>OWN.has(c[0])).length;
+  const isNew = S.newIds.includes(d.id);
+  const toggle = !L && !d.turns && st!=='quest';
+  return `<div class="item one ${L?'locked':''} ${st==='done'?'done':''}">
+    ${toggle ? `<button class="stbtn" data-done="${d.id}" aria-label="Toggle cleared">${icon}</button>` : icon}
+    <button class="${L?'lk':'nmbtn'}" data-duty="${d.id}">${name}${S.focus==='all'&&!(L&&S.labels)?xtag(d.x):''}${isNew?' <span class="xtag" style="color:var(--quest)">NEW</span>':''}</button>
+    ${st==='quest'?'<span class="qtag">Quest</span>':''}${cl.length&&!L?`<span class="cc">${co}/${cl.length}</span>`:''}
+    ${L?'':pinB(d.id, d.n, 'duties')}</div>`;
+}
+function duties(){
+  const pick = {
+    all:()=>true,
+    avail:d=>['avail','prog','done'].includes(dStatus(d)),
+    todo:d=>['avail','prog','quest'].includes(dStatus(d)),
+    locked:d=>dStatus(d)==='locked'
+  }[S.seg];
+  const L = DUTIES.filter(d=>inFocus(d.x) && pick(d));
+  const hi = S.view==='hduties';
+  const ORDER = ['Dungeons','Trials','Raids','Guildhests','Variant & criterion','Deep dungeons','Field operations','Treasure dungeons','Extreme trials','High-end raids','Ultimate raids'];
+  const groups = ORDER.filter(g => HE.has(g) === hi && DUTIES.some(d=>d.g===g));
+  return `${topbar('Duties',true)}<div class="seg" role="group" aria-label="Duty type"><button data-go="duties" aria-pressed="${!hi}">Normal</button><button data-go="hduties" aria-pressed="${hi}">High-end</button></div>${focusChips()}
+    <div class="seg" role="group" aria-label="Filter">${[['todo','To Do'],['avail','Available'],['locked','Locked'],['all','All']].map(([k,l])=>`<button data-seg="${k}" aria-pressed="${S.seg===k}">${l}</button>`).join('')}</div>
+    <div class="legend"><span>${small(ICON.avail)} Ready</span><span>${small(ICON.prog(1,2))} In progress</span><span>${small(ICON.quest)} Needs a quest</span><span>${small(ICON.locked)} Story or level locked</span><span>${small(ICON.done)} Done</span></div>
+    ${groups.map(g=>{ let rows = L.filter(d=>d.g===g); if (!rows.length) return '';
+      const allLocked = DUTIES.filter(d=>d.g===g).every(d=>['locked','quest'].includes(dStatus(d)));
+      if (S.strict){ const rk = d => dStatus(d)!=='locked' ? null : (d.msq && !msqDone(d.msq) ? mIdx(d.msq) : lockRank({q:d.q}));
+        const min = Math.min(...rows.map(rk).filter(r=>r!=null)); let used = false; rows = rows.filter(d => { const r = rk(d); return r==null || (r===min && !used && (used = true)); }); }
+      const key = 'duties:'+g;
+      if (allLocked && S.spoiler) return '';
+      if (rows.length > 12) S.big.add(key);
+      const dn = rows.filter(d=>dStatus(d)==='done').length;
+      const fold = S.seg!=='locked' && !S.strict, lockedRows = fold ? rows.filter(d=>dStatus(d)==='locked') : [], openRows = fold ? rows.filter(d=>dStatus(d)!=='locked') : rows, lk = 'L:'+key;
+      return secHead(g, `${dn} / ${rows.length}`, key) + (isClosed(key) ? '' : `<div class="card">${byExpansion(openRows, d=>d.x, key, dutyRow)}${lockedLine(lockedRows.length, lk)}${S.showLocked.has(lk)?lockedRows.map(dutyRow).join(''):''}</div>`); }).join('') || '<div class="stubmsg"><b>Nothing here</b>Try another filter or expansion.</div>'}`;
+}
+function jobState(j){ if (!j[3]) return 'open'; const c = chainFor(j[3]); if (!c.steps.length) return 'open'; return (c.msqBlock||c.lvBlock)?'locked':'quest'; }
+function jobs(){
+  const combat = JOBS.map(([role,js])=>{ const ents = js.filter(j=>inBand(j[0])).map(j=>({name:j[1], lock: j[3]&&jobState(j)!=='open' ? {q:j[3]} : null,
+      html:()=>`<div class="jobrow"><b>${esc(j[1])}${tgtNote('job:'+j[0])}${jqNext(j[0])?`<br><button class="qbtn" style="margin:4px 0 0" data-jq="${j[0]}|${jqNext(j[0])}">Lv ${jqNext(j[0])} job quest · mark done</button>`:''}</b><span class="ctrl">${pinB('job:'+j[0], j[1], 'jobs')}<span class="stepper"><button class="sbtn" data-lv="${j[0]}:-1" aria-label="Lower ${j[1]}">−</button><span class="sval">${j[2]}</span><button class="sbtn" data-lv="${j[0]}:1" aria-label="Raise ${j[1]}">+</button></span></span><span class="lvbar"><i style="width:${Math.min(j[2],bandCap())*100/bandCap()}%"></i></span></div>`}));
+    const rq = ROLEQ.find(x=>x[0]===role), done = RQD[role]||0, nx = rq[1].find(l=>l>done), ready = rqNext(role);
+    const best = Math.max(...js.map(j=>j[2]));
+    const rqRow = nx ? {name:'Role quests', lock: ready ? null : {msq:rq[2]}, html:()=> ready
+        ? `<div class="item">${ICON.quest}<div class="body"><div class="nm">${role} role quest · Lv ${nx}</div><button class="qbtn" style="margin:4px 0 0" data-rq="${role}|${nx}">Mark done</button></div></div>`
+        : `<div class="item">${ICON.avail}<div class="body"><div class="nm">${role} role quests</div><div class="sub">Next at Lv ${nx} · your best ${role.toLowerCase()} job is Lv ${best}</div></div></div>`} : null;
+    return sect(role, rqRow ? [...ents, rqRow] : ents); }).join('');
+  const dohl = [['Crafters',['CRP','BSM','ARM','GSM','LTW','WVR','ALC','CUL']],['Gatherers',['MIN','BTN','FSH']]].map(([g,js])=>sect(g, js.map(j=>({name:JN[j], html:()=>`<div class="jobrow"><b>${JN[j]}${tgtNote('job:'+j)}</b><span class="ctrl">${pinB('job:'+j, JN[j], 'jobs')}<span class="stepper"><button class="sbtn" data-clv="${j}:-1" aria-label="Lower ${JN[j]}">−</button><span class="sval">${CLV[j]}</span><button class="sbtn" data-clv="${j}:1" aria-label="Raise ${JN[j]}">+</button></span></span><span class="lvbar"><i style="width:${Math.min(CLV[j],bandCap())*100/bandCap()}%"></i></span></div>`})))).join('');
+  const bigHead = t => `<h2 style="font-family:var(--f-display);font-size:1.05rem;margin:22px 0 2px;letter-spacing:.03em">${t}</h2>`;
+  return `${topbar('Jobs',true)}${focusChips()}
+    ${S.focus!=='all'?`<p class="sample" style="color:var(--x-${S.focus});font-weight:600">${EXP[S.focus][0]}: bars show progress through Lv ${S.focus==='arr'?1:BR[S.focus][0]}–${CAP[S.focus]}; only jobs available in that expansion are listed.</p>`:''}
+    <p class="sample">Levels go to 100 at any point in the story. New combat jobs unlock from your <b>highest combat job level</b> (now ${highLv()}). Pin a job to set a target level.</p>
+    ${bigHead('Disciples of War &amp; Magic')}${combat}
+    ${sect('Limited jobs', [
+      {name:'Blue Mage', x:'sb', lock:{q:'bluQ'}, html:()=>`<div class="jobrow"><span><b>Blue Mage</b>${xtag('sb')}<div class="sub">${BLU.filter(s=>C.has('blu:'+s)).length} of ${BLU.length} spells · Carnivale ${N.carn} of 32</div></span>
+        <span class="ctrl">${pinB('blu','Blue Mage level','jobs')}${stepN('blu',1,80,1,'Blue Mage level')}<button class="iconbtn" data-ljob="blu" aria-label="Open Blue Mage details">${CHEV}</button></span><span class="lvbar"><i style="width:${N.blu*100/80}%"></i></span></div>`},
+      {name:'Beastmaster', x:'dt', lock:{q:'bstQ'}, html:()=>`<div class="jobrow"><span><b>Beastmaster</b>${xtag('dt')}</span><span class="ctrl">${stepN('bst',1,100,1,'Beastmaster level')}<button class="iconbtn" data-ljob="bst" aria-label="Open Beastmaster details">${CHEV}</button></span><span class="lvbar"><i style="width:${(N.bst||1)}%"></i></span></div>`}])}
+    ${bigHead('Disciples of the Hand &amp; Land')}${dohl}`;
+}
+// Job quest levels (sample; the full app takes these from game data) and the story point each band needs
+const JQL = [[30,'arr0'],[35,'arr0'],[40,'arr0'],[45,'arr0'],[50,'arr0'],[52,'arr5'],[54,'arr5'],[56,'arr5'],[58,'arr5'],[60,'arr5'],[63,'hw5'],[65,'hw5'],[68,'hw5'],[70,'hw5'],[80,'sb5'],[90,'shb5'],[92,'ew1'],[94,'ew1'],[96,'ew1'],[98,'ew1'],[100,'ew1']];
+const JQD = {PLD:65,WAR:60,DRK:58,WHM:70,SCH:45,AST:30,MNK:70,DRG:54,NIN:35,SAM:56,BRD:68,MCH:0,BLM:60,SMN:45,RDM:60};
+const ROLEQ = [['Tanks',[72,74,76,78,80],'sb5'],['Healers',[72,74,76,78,80],'sb5'],['Melee',[72,74,76,78,80],'sb5'],['Physical ranged',[72,74,76,78,80],'sb5'],['Magical ranged',[72,74,76,78,80],'sb5']];
+const RQD = {};
+function jqNext(j){ const lv = jobLv(j), done = JQD[j] ?? 0; const nx = JQL.find(([l]) => l > done); if (!nx) return null; const [l,m] = nx; return (l <= lv && msqDone(m)) ? l : null; }
+function rqNext(role){ const r = ROLEQ.find(x=>x[0]===role); const done = RQD[role] || 0; const nx = r[1].find(l=>l>done); if (!nx || !msqDone(r[2])) return null;
+  const best = Math.max(...JOBS.find(x=>x[0]===role)[1].map(j=>j[2])); return nx <= best ? nx : null; }
+function readyJobQuests(){ const out = []; JOBS.forEach(([,js]) => js.forEach(j => { if (j[2] < 30 || (j[3] && jobState(j)!=='open')) return; const l = jqNext(j[0]); if (l) out.push({j:j[0], n:j[1], l}); })); return out; }
+const readyRoleQuests = () => JOBS.map(([role]) => ({role, l:rqNext(role)})).filter(x=>x.l);
+const JINTRO = {DRK:'hw',AST:'hw',MCH:'hw',SAM:'sb',RDM:'sb',GNB:'shb',DNC:'shb',RPR:'ew',SGE:'ew',VPR:'dt',PCT:'dt'};
+const XORD = ['arr','hw','sb','shb','ew','dt'];
+const inBand = j => S.focus==='all' || XORD.indexOf(JINTRO[j]||'arr') <= XORD.indexOf(S.focus);
+const bandCap = () => S.focus==='all' ? 100 : CAP[S.focus];
+const BLU = DATA.BLU;
+function ljob(){
+  if (S.ljob==='bst') return `${topbar('Beastmaster',true)}<div class="stubmsg"><b>Beasts and abilities</b>Each tamed beast and learned ability would list here as a checklist, like Blue Mage spells.</div>`;
+  return `${topbar('Blue Mage',true)}
+    <div class="card">${row('Level', `Lv ${N.blu} of 80`, stepN('blu',1,80,1,'Blue Mage level'), bar(N.blu,80), pinB('blu','Blue Mage level','ljob'))}${row('Masked Carnivale stages', `${N.carn} of 32`, stepN('carn',0,32,1,'stages'), bar(N.carn,32), pinB('carn','Masked Carnivale','ljob'))}${box('blu-log','Blue Mage log complete')}</div>
+    <h2 class="sh">Spellbook <span>${BLU.filter(s=>C.has('blu:'+s)).length} of ${BLU.length} learned</span></h2>
+    <div class="card">${BLU.map((s,i)=>box('blu:'+s, `No. ${i+1} ${s}`, esc(DATA.BLUSRC[i]||''))).join('')}</div>`;
+}
+const JN = {CRP:'Carpenter',BSM:'Blacksmith',ARM:'Armorer',GSM:'Goldsmith',LTW:'Leatherworker',WVR:'Weaver',ALC:'Alchemist',CUL:'Culinarian',MIN:'Miner',BTN:'Botanist',FSH:'Fisher'};
+const jobLv = j => CLV[j] ?? JOBS.flatMap(x=>x[1]).find(x=>x[0]===j)[2];
+const tgtNote = id => S.targets[id] ? ` <span class="sub" style="display:inline;color:var(--quest)">→ Lv ${S.targets[id].to}</span>` : '';
+function gear(){
+  const rows = RELIC.jobs.map(j=>{ const s = RS[j]||0, lv = JOBS.flatMap(x=>x[1]).find(x=>x[0]===j)[2], low = lv<50, pid = 'relic:'+j;
+    return `<div class="jobrow" style="${low?'opacity:.5':''}"><span><span class="xtag" style="margin:0 8px 0 0;color:var(--ink)">${j}</span><span class="sub" style="display:inline">${s?(s===8?'Complete · ':'')+RELIC.st[s-1]:low?`Lv ${lv}, needs 50`:'Not started'}</span></span>
+      ${low?ICON.locked:`<button class="pinbtn" aria-pressed="${S.pins.includes(pid)}" data-pin="${pid}" aria-label="Pin ${j}">${PIN(S.pins.includes(pid))}</button>`}
+      <div class="track" style="grid-column:1/-1">${RELIC.st.map((_,i)=>`<button class="pip ${i<s?'on':''}" ${low?'disabled':''} data-stage="${j}:${i+1}" aria-label="${j} ${RELIC.st[i]}"></button>`).join('')}</div></div>`; }).join('');
+  if (!inFocus('arr')) return `${topbar('Gear & relics',true)}${focusChips()}<div class="stubmsg"><b>Only the Zodiac (ARR) relic is in so far</b>Each expansion's relic will show here.</div>`;
+  return `${topbar('Gear & relics',true)}${focusChips()}<div class="chips"><button class="chip" aria-pressed="true">Zodiac</button><button class="chip">Anima</button><button class="chip">Eureka</button><button class="chip">${S.spoiler?'???':'Resistance'} · locked</button></div>
+    <h2 class="sh">Zodiac weapons ${xtag('arr')} <span>${RELIC.jobs.filter(j=>RS[j]===8).length} of 10 jobs complete</span></h2><div class="card">${rows}</div>
+    <p class="sample">Tap a segment to set a job's stage. Relics from later expansions are still to come.</p>
+    ${sect('Relic tools', [{name:'Lucis tools', x:'hw', lock:{msq:'hw1'}, html:()=>`<div class="item"><div class="body"><div class="nm">Lucis tools${xtag('hw')}</div><div style="margin-top:6px">${named('lucis',['Mastercraft','Supra','Lucis'])}</div></div>${pinB('lucis','Lucis tools','gear')}</div>`}])}
+    ${sect('Artifact armor', [['af50','Lv 50 sets','arr',10],['af60','Lv 60 sets','hw',13],['af70','Lv 70 sets','sb',15]].map(([k,n,x,t])=>({name:n, x, html:()=>{ N[k] = N[k] ?? {af50:6,af60:2,af70:0}[k]; return row(`${n}${xtag(x)}`, `${N[k]} of ${t} jobs`, stepN(k,0,t,1,n), bar(N[k],t), pinB(k,'Artifact armor '+n,'gear')); }})))}
+    ${sect('Ultimate weapons', [{name:'The Unending Coil of Bahamut', x:'sb', lock:{msq:(DUTIES.find(d=>/Unending Coil/.test(d.n))||{}).msq||'sb0'}, html:()=>''}])}`;
+}
+function ranks(){
+  const LOCK = (o => o.msq ? {msq:o.msq} : o.q ? {q:o.q} : null);
+  const ents = DELIV.map(x=>({name:x.n, x:x.x, lock:LOCK(x), html:()=>`<div class="item">${x.r===5?ICON.done:ICON.prog(x.r,5)}<div class="body"><div class="nm">${esc(x.n)}${S.focus==='all'?xtag(x.x):''}</div><div class="sub">${esc(x.w||'')} · from Lv ${x.lv}</div><div style="margin-top:6px">${ladder(x.id,x.r,5)}</div></div>${pinB(x.id,x.n,'ranks')}</div>`}));
+  const comp = [{name:'Chocobo companion', x:'arr', html:()=>row('Chocobo companion', N.choco===20?'Max rank':`Rank ${N.choco} of 20`, stepN('choco',0,20,1,'chocobo rank'), bar(N.choco,20), pinB('choco','Chocobo companion rank','ranks'))}];
+  const gc = [{name:'Grand Company', x:'arr', html:()=>`<div class="item"><div class="body"><div class="nm">Grand Company rank</div><div style="margin-top:6px">${named('gc',DATA.GCR)}</div></div>${pinB('gcrank','Grand Company rank','ranks')}</div>`}];
+  DATA.SOC.forEach(s=>{ if (LAD[s.id]==null) LAD[s.id] = 0; });
+  const soc = DATA.SOC.map(s=>({name:s.n, x:s.x, lock:LOCK(s), html:()=>`<div class="item"><div class="body"><div class="nm">${esc(s.n)}${S.focus==='all'?xtag(s.x):''}</div><div class="sub">${esc(s.w||'')}${s.cur?' · '+esc(s.cur):''}</div><div style="margin-top:6px">${named(s.id, s.ranks)}</div></div>${pinB(s.id,s.n+' reputation','ranks')}</div>`}));
+  const sq = [{name:'Adventurer Squadron', x:'arr', lock:{msq:'arr4'}, html:()=>row('Adventurer Squadron rank', `Rank ${N.squad} of 10`, stepN('squad',1,10,1,'squadron rank'), bar(N.squad,10), pinB('squad','Squadron rank','ranks'))}];
+  const trust = DATA.TRUST.map((n,i)=>({name:n, x:'shb', lock:{msq:'shb0'}, html:()=>{ const k='trust'+i; N[k] = N[k] ?? 0; return row(esc(n), `Lv ${N[k]} of 100`, stepN(k,0,100,1,n+' level'), bar(N[k],100), pinB(k,n+' trust level','ranks')); }}));
+  return `${topbar('Ranks & reputation',true)}${focusChips()}${orEmpty(sect('Custom Deliveries', ents)+sect('Allied societies', soc)+sect('Grand Company', gc)+sect('Companion', comp)+sect('Adventurer Squadron', sq)+sect('Trust', trust, 'levels'))}`;
+}
+function coll(){
+  if (!S.collCat) return `${topbar('Collections',true)}<div class="collgrid">${COLLS.filter(([,,gate])=>!gate || msqDone(gate) || !S.spoiler).map(([n,live])=>{ const all = live?COLLDATA[n].flatMap(g=>g[1]):[]; const d = all.filter(m=>OWN.has(m[0])).length;
+      return `<button class="tile ${live?'':'stub'}" data-coll="${n}"><span class="tn">${n}</span>${live?ring(d,all.length):''}<span class="ta">${live?`<b>${d}</b> of ${all.length}`:'Not in mockup'}</span></button>`; }).join('')}</div>`;
+  const q = S.q.trim().toLowerCase(), cat = S.collCat;
+  const groupCard = ([g,ms,gx]) => { const rows = ms.filter(m=>inFocus(m[2]||gx) && (S.ownFilter==='all'||(S.ownFilter==='own')===OWN.has(m[0])) && (!q || (m[0]+' '+m[1]).toLowerCase().includes(q)));
+    const inF = ms.filter(m=>inFocus(m[2]||gx)), d = inF.filter(m=>OWN.has(m[0])).length, key = cat+':'+g, open = S.open.has(key) || !!q;
+    if (!rows.length) return '';
+    return `<div class="card" style="margin-top:10px"><div style="display:flex;align-items:center"><button class="grp" data-grp="${esc(key)}" aria-expanded="${open}">${CHEV}<span class="gn">${esc(g)}</span><span class="gc">${d} / ${inF.length}</span></button>${pinB('coll:'+key, `${g} (${cat})`, 'coll')}</div>
+      ${open?byExpansion(rows, m=>m[2]||gx, 'c:'+key, m=>`<div class="ownrow"><button class="own" role="checkbox" aria-checked="${OWN.has(m[0])}" data-own="${esc(m[0])}" aria-label="Own ${esc(m[0])}">${TICK}</button><div class="body"><div class="nm">${esc(m[0])}${S.focus==='all'?xtag(m[2]||gx):''}</div><div class="sub">${esc(m[1])}</div></div></div>`):''}</div>`; };
+  let groups;
+  if (cat==='Achievements' && !q){   // mirror the game's menu: kind, then category, then achievements
+    const kinds = [...new Set(COLLDATA[cat].map(([g])=>g.split(':')[0]))];
+    groups = kinds.map(k => { const gs = COLLDATA[cat].filter(([g])=>g.split(':')[0]===k), key = 'ak:'+k; S.big.add(key);
+      const all = gs.flatMap(g=>g[1]).filter(m=>inFocus(m[2]||g[2])); if (!all.length) return '';
+      const inner = isClosed(key) ? '' : gs.map(([g,ms,gx]) => groupCard([g.split(':').slice(1).join(':').trim()||g, ms, gx])).join('');
+      return secHead(k, `${all.filter(m=>OWN.has(m[0])).length} / ${all.length}`, key) + inner; }).join('');
+  } else groups = COLLDATA[cat].map(groupCard).join('');
+  return `${topbar(cat,true)}
+    <input class="search" id="q" type="search" placeholder="Search ${cat.toLowerCase()} or sources" value="${esc(S.q)}" aria-label="Search ${cat}">${focusChips()}
+    <div class="seg">${[['all','All'],['own','Owned'],['miss','Missing']].map(([k,l])=>`<button data-ownf="${k}" aria-pressed="${S.ownFilter===k}">${l}</button>`).join('')}</div>
+    ${groups || '<div class="stubmsg"><b>No matches</b>Try another search.</div>'}
+    <p class="sample">${cat==='Achievements'?'Grouped like the in-game achievement menu.':'Grouped by where things come from.'} Groups over 30 split by expansion. Opens on Missing; switch to All or Owned above.</p>`;
+}
+function stub(k){ const c = CATS.find(x=>x.k===k); return `${topbar(c.n,true)}<div class="stubmsg"><b>Not built yet</b>This category will reuse the Duties list, unlock chains and pinning.</div>`; }
+
+/* ---------- shared mini-controls for the newer screens ---------- */
+const N = {bst:1, blu:44, carn:11, squad:6, ss1:9, ss2:4, ss3:0, lv1:22, lv2:10, lv3:0, sr1:7, sr2:3, spear:3, choco:14, tt:148, ttNpc:31, race:18, lov:7, series:14, fl:23, rw:4, potd:200, hoh:30, orthos:0, bigArr:9, eureka:0, enclave:0,
+  'ss-hildi':8, 'ss-kojin':3, 'zq-fri':31, 'zq-kug':12, 'zq-ruby':6, 'zq-yan':4, 'zq-azim':0, 'zq-peaks':0, 'zq-lochs':0};
+const C = new Set(['potd-solo-no','gate-Cliffhanger','gate-The Slice Is Right','house-own','tt-bronze','tt-silver','fish-arr-La Noscea','fish-arr-The Black Shroud']);
+const LAD = {cc:3, mahjong:0, gc:5, lucis:1};
+const GC = {ranks:['Sergeant Third Class','Sergeant Second Class','Sergeant First Class','Chief Sergeant','Second Lieutenant','First Lieutenant','Captain']};
+const CLV = {CRP:32,BSM:50,ARM:50,GSM:20,LTW:50,WVR:12,ALC:50,CUL:64,MIN:50,BTN:41,FSH:30};
+const BR = {arr:[1,6,11,16,21,26,31,36,41,46],hw:[51,56],sb:[61,66],shb:[71,76],ew:[81,86],dt:[91,96]};
+const CAP = {arr:50,hw:60,sb:70,shb:80,ew:90,dt:100};
+// pre-tick crafting brackets the sample crafters have clearly passed
+['CRP','BSM','ARM','GSM','LTW','WVR','ALC','CUL'].forEach(j=>BR.arr.forEach((s,i)=>{ if (s+4 <= CLV[j]-6) { C.add(`recipes:arr:${j}:${i}`); if (i<4) C.add(`furn:arr:${j}:${i}`); } }));
+['MIN','BTN'].forEach(j=>BR.arr.forEach((s,i)=>{ if (s+4 <= CLV[j]-4) C.add(`gather:arr:${j}:${i}`); }));
+Object.values(Q).forEach(q => { if (q.done) q.at = QSEQ++; });
+const GATES = [
+  {label:'Limited jobs', where:'Jobs', q:'bluQ'},
+  {label:'Rebuilding', where:'Lifestyle projects', q:'domanQ'},
+  {label:'Field operations', where:'Field ops & deep dungeons', q:'eurekaQ'},
+];
+function goldQuests(){ const m = new Map();
+  GATES.forEach(g => { const c = chainFor(g.q); if (!c.steps.length || c.msqBlock || c.lvBlock) return; const first = c.steps[0];
+    if (!m.has(first.id)) m.set(first.id, {id:first.id, q:first.q, opens:[]}); m.get(first.id).opens.push(g); });
+  return [...m.values()]; }
+const EXTRA_UNLOCKS = [['hohQ','Heaven-on-High','Deep dungeon'],['mahjongQ','Doman Mahjong','Gold Saucer game'],['domanQ','Doman Enclave reconstruction','Lifestyle project']];
+const stepN = (key,min,max,step=1,label) => `<span class="stepper"><button class="sbtn" data-n="${key}|-${step}|${min}|${max}" aria-label="Lower ${label||key}">−</button><span class="sval">${N[key]}</span><button class="sbtn" data-n="${key}|${step}|${min}|${max}" aria-label="Raise ${label||key}">+</button></span>`;
+const ownBox = (n,sub) => `<div class="ownrow"><button class="own" role="checkbox" aria-checked="${OWN.has(n)}" data-own="${esc(n)}" aria-label="${esc(n)}">${TICK}</button><div class="body"><div class="nm">${esc(n)}</div>${sub?`<div class="sub">${sub}</div>`:''}</div></div>`;
+const box = (key,label,sub) => `<div class="ownrow"><button class="own" role="checkbox" aria-checked="${C.has(key)}" data-c="${esc(key)}" aria-label="${esc(label)}">${TICK}</button><div class="body"><div class="nm">${esc(label)}</div>${sub?`<div class="sub">${sub}</div>`:''}</div></div>`;
+const named = (key,names) => `<div class="ladder">${names.map((n,i)=>`<button class="rung ${i<LAD[key]?'on':''}" data-l="${key}|${i+1}" aria-label="${esc(n)}"></button>`).join('')}<span class="ladlbl">${LAD[key]?esc(names[LAD[key]-1]):'Not started'}</span></div>`;
+const bar = (d,t) => `<span class="lvbar" style="grid-column:1/-1"><i style="width:${t?d*100/t:0}%"></i></span>`;
+function lockRank(opts){
+  if (!opts) return null;
+  if (opts.msq) return msqDone(opts.msq) ? null : mIdx(opts.msq);
+  const c = chainFor(opts.q); if (!c.steps.length) return null;
+  if (c.msqBlock) return mIdx(c.msqBlock);
+  if (c.lvBlock){ const lv = c.steps.find(s=>s.type==='lv'); return 1000 + (lv?lv.lv:0); }
+  return null;
+}
+/* Section: entries are {name,x,lock,html,hideUnless}. Locked sections show ????? with spoilers on; "Next only" keeps just the nearest locked entry. */
+const plain = s => String(s).replace(/<[^>]*>/g,'').trim();
+const orEmpty = body => body.trim() ? body : `<div class="stubmsg"><b>Nothing open here for ${S.focus==='all'?'you':EXP[S.focus][0]} yet</b>The rest opens later in the story.${S.focus!=='all'?' <button class="chip" data-focus="all" style="margin-top:10px">Show all expansions</button>':''}</div>`;
+const isClosed = key => (S.foldAll || S.big.has(key)) ? !S.closed.has(key) : S.closed.has(key);  // sections over 12 rows start folded
+function secHead(title, right, key){ const open = !isClosed(key);
+  return `<button class="shbtn" data-sec="${esc(key)}" aria-expanded="${open}">${CHEV}<span class="t">${title}</span><span class="r">${right}</span></button>`; }
+function sect(title, entries, right=''){
+  let es = entries.filter(e => (!e.x || inFocus(e.x)) && !(S.strict && e.hideUnless && !e.hideUnless())).map(e => ({...e, r: lockRank(e.lock)}));
+  if (!es.length) return '';
+  const isOpen = o => !o || (o.msq ? msqDone(o.msq) : !chainFor(o.q).steps.length);
+  const storyLocked = e => e.lock && (e.lock.msq ? !msqDone(e.lock.msq) : !!chainFor(e.lock.q).msqBlock || chainFor(e.lock.q).lvBlock);
+  const allLocked = es.every(storyLocked);   // a section only vanishes when the story hasn't reached any of it
+  if (S.strict){ const min = Math.min(...es.filter(e=>e.r!=null).map(e=>e.r)); let used = false; es = es.filter(e => e.r==null || (e.r===min && !used && (used = true))); }
+  if (allLocked && S.spoiler) return '';
+  const hide = false;
+  const key = S.view+':'+plain(title);
+  if (es.length > 12) S.big.add(key);
+  const shown = S.strict ? es : es.filter(e => !storyLocked(e)), hiddenN = es.length - shown.length, lk = 'L:'+key;
+  const list = shown.map(e => (e.lock && lockCard(e.name,e.x,e.lock)) || e.html()).join('') + (S.strict ? '' : lockedLine(hiddenN, lk) + (S.showLocked.has(lk) ? es.filter(storyLocked).map(e => lockCard(e.name,e.x,e.lock)).join('') : ''));
+  return secHead(hide?'?????':title, hide?'':right, key) + (isClosed(key) ? '' : `<div class="card">${list}</div>`);
+}
+function lockCard(name, x, opts){ // opts: {msq} or {q}
+  const st = opts.msq ? (msqDone(opts.msq)?'open':'locked') : (()=>{ const c = chainFor(opts.q); return !c.steps.length ? 'open' : (c.msqBlock||c.lvBlock) ? 'locked' : 'quest'; })();
+  if (st==='open') return null;
+  return `<div class="item ${st==='locked'?'locked':''}">${ICON[st]}<div class="body"><div class="nm">${st==='locked'&&S.spoiler?'???':esc(name)}${x&&!S.labels?xtag(x):''}</div>${opts.msq?chainHTML(null,opts.msq):chainHTML(opts.q)}</div></div>`;
+}
+const META = {};
+const lockedLine = (n, key) => n ? `<button class="subgrp" data-showlocked="${esc(key)}" aria-expanded="${S.showLocked.has(key)}" style="color:var(--muted);font-weight:600">${small(ICON.locked)}<span>${n} more open later in the story</span><span class="gc">${S.showLocked.has(key)?'Hide':'Show'}</span></button>` : '';
+const XKEYS = ['arr','hw','sb','shb','ew','dt'];
+function byExpansion(rows, xOf, key, rowHTML){   // split a long list into expansion sub-groups, each folded
+  if (rows.length <= 30 || S.focus !== 'all') return rows.map(rowHTML).join('');
+  return XKEYS.map(x => { const sub = rows.filter(r => xOf(r)===x); if (!sub.length) return '';
+    const k = key+':'+x; S.big.add(k); const open = !isClosed(k);
+    return `<button class="subgrp" data-sec="${esc(k)}" aria-expanded="${open}">${CHEV}<span class="dot" style="width:8px;height:8px;background:var(--x-${x})"></span>${EXP[x][0]}<span class="gc">${sub.length}</span></button>${open?sub.map(rowHTML).join(''):''}`; }).join('');
+}
+const HE = new Set(['Extreme trials','High-end raids','Ultimate raids']);
+const KIND = {Guildhests:'Guildhest','Hall of the Novice':'Training','Extreme trials':'Trial',Dungeons:'Dungeon',Trials:'Trial',Raids:'Raid','High-end raids':'Raid','Ultimate raids':'Raid','Field operations':'Field operation','Variant & criterion':'Variant dungeon','Deep dungeons':'Deep dungeon','Treasure dungeons':'Treasure dungeon'};
+const KCAT = {Quest:'story',Dungeon:'duties',Trial:'duties',Raid:'duties','Field operation':'field',Job:'jobs','Deep dungeon':'field','Gold Saucer game':'games','Lifestyle project':'life'};
+const pinB = (id, t, view, reg) => { META[id] = {t, view, reg}; const on = S.pins.includes(id); return `<button class="pinbtn" aria-pressed="${on}" data-pin="${esc(id)}" aria-label="Pin ${esc(t)}">${PIN(on)}</button>`; };
+const row = (title, sub, ctrl, extra='', pin='') => `<div class="jobrow"><span><b>${title}</b>${sub?`<div class="sub">${sub}</div>`:''}</span><span class="ctrl">${ctrl}${pin}</span>${extra}</div>`;
+const CHEV = '<svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>';
+const drill = (label, d, t, reg, pin='') => `<div style="display:flex;align-items:center;border-top:1px solid var(--line)"><button class="drill" style="border:0" data-region="${esc(JSON.stringify(reg))}"><span><b>${esc(label)}</b><div class="sub">${d} of ${t}${d===t?' · complete':''}</div></span><span class="cd">${t?Math.round(d*100/t):0}%</span>${CHEV}${bar(d,t)}</button>${pin}</div>`;
+
+/* ---------- Side stories ---------- */
+const ZONES = DATA.SIDE.map((z,i)=>['s'+i, z[0], z[2], z[3].length, z[1], z[3]]);  // [key, area, story gate, count, expansion, quest names]
+ZONES.forEach(z => { if (z[4]==='arr') for (let i=0;i<Math.floor(z[3]*.8);i++) C.add(`zq:${z[0]}:${i}`); else if (z[4]==='hw') for (let i=0;i<Math.floor(z[3]*.4);i++) C.add(`zq:${z[0]}:${i}`); });
+['Water Cannon','Flame Thrower','Aqua Breath','Flying Frenzy','Loom'].forEach(s=>C.add('blu:'+s));
+const FISH = Object.assign({arr:{},hw:{},sb:{},shb:{},ew:{},dt:{}}, DATA.FISH);
+Object.entries(FISH.arr).slice(0,4).forEach(([r,holes]) => holes.forEach(x => C.add(`fish:arr:${r}:${x}`)));
+function story(){
+  const series = [['ss-hildi','Hildibrand Adventures','arr',{msq:'arr2'},8,null],['ss-kojin','Kojin storyline','sb',{msq:'sb-ruby0'},8,null],['ss-ananta','Ananta storyline','sb',{msq:'sb1'},8,null],['ss-hildi-ew','Hildibrand Adventures, part two','ew',{msq:'ew0'},10,'ss-hildi']];
+  const ser = series.filter(s=>inFocus(s[2])).map(([k,n,x,o,max,prev])=>{ N[k]=N[k]||0;
+    return {name:n, x, lock:o, hideUnless: prev ? () => N[prev]===8 : null, html:()=>row(`${esc(n)}${xtag(x)}`, N[k]===max?'Complete':`Part ${N[k]} of ${max}`, stepN(k,0,max,1,n), bar(N[k],max), pinB(k,n,'story'))}; });
+  const zones = ZONES.filter(z=>inFocus(z[4])).map(([k,n,m,max,x])=>({name:n, x, lock:{msq:m}, html:()=>{ const keys = Array.from({length:max},(_,i)=>`zq:${k}:${i}`); const reg = {kind:'side',k,name:n,parent:'story'};
+      return drill(n, keys.filter(x=>C.has(x)).length, max, reg, pinB('reg:side:'+k, n+' sidequests', 'region', reg)); }}));
+  return `${topbar('Side stories',true)}${focusChips()}
+    ${sect('Story series', ser, 'parts done') || '<div class="stubmsg">None for this expansion</div>'}
+    ${sect('Sidequests by area', zones, 'tap an area')}
+    <div class="card" style="margin-top:12px"><button class="drill" data-go="leves"><span><b>Levequests</b><div class="sub">All 1,757 leves, under World</div></span><span></span>${CHEV}</button></div>
+    <p class="sample">With "Next only" spoilers, Hildibrand part two stays hidden until part one is complete.</p>`;
+}
+/* ---------- Field ops & deep dungeons ---------- */
+function field(){
+  const LOCK = (o => o.msq ? {msq:o.msq} : o.q ? {q:o.q} : null), F = DATA.FIELD;
+  const zones = [['Anemos',1,20],['Pagos',20,35],['Pyros',35,50],['Hydatos',50,60]];
+  const fo = [
+    {name:'Eureka', x:'sb', lock:LOCK(F.eureka[0][1]), html:()=>`${row(`Eureka${S.focus==='all'?xtag('sb'):''}`,`Elemental Level ${N.eureka} of 60`,stepN('eureka',0,60,1,'Elemental Level'),'',pinB('eureka','Eureka Elemental Level','field'))}
+        <div style="padding:0 12px 10px;display:grid;grid-template-columns:repeat(4,1fr);gap:6px">${zones.map(([z,a,b])=>`<div style="text-align:center"><div class="track"><span class="pip ${N.eureka>=b?'on':''}" style="cursor:default"></span></div><div class="sub">${z}<br>${a}–${b}</div></div>`).join('')}</div>`},
+    ...F.bozja.map(([n,g])=>({name:n, x:'shb', lock:LOCK(g), html:()=>box('fo:'+n, n, n.includes('Savage')?'Cleared':n==='The Bozjan Southern Front'||n==='Zadnor'?'Resistance rank 25 / all records':'Cleared')})),
+    ...F.occult.map(([n,g])=>({name:n, x:'dt', lock:LOCK(g), html:()=>box('fo:'+n, n, n.includes('Horn')?'Knowledge level and records':'Cleared')}))];
+  const dd = F.deep.map(([n,x,fl,g])=>({name:n, x, lock:LOCK(g), html:()=>{ const k='dd:'+n; N[k] = N[k] ?? (x==='hw'?200:x==='sb'?30:0);
+    return row(`${esc(n)}${S.focus==='all'?xtag(x):''}`, N[k]===fl?`All ${fl} floors`:`Floor ${N[k]} of ${fl}`, stepN(k,0,fl,10,'floors'), bar(N[k],fl), pinB(k,n,'field')); }}));
+  const fr = (COLLDATA['Field Records']||[]).map(([g,ms])=>({name:g, x: g.startsWith('Bozja')?'shb':g.startsWith('Occult')?'dt':'ew', html:()=>{ const d = ms.filter(m=>OWN.has(m[0])).length; return row(esc(g), `${d} of ${ms.length}`, `<button class="link" data-opencoll="Field Records">Open</button>`, bar(d,ms.length)); }}));
+  return `${topbar('Field ops & deep dungeons',true)}${focusChips()}${orEmpty(sect('Field operations', fo)+sect('Deep dungeons', dd, 'highest floor cleared')+sect('Records', fr))}
+    <p class="sample">Floors move in steps of 10, matching the save points.</p>`;
+}
+/* ---------- Crafting & gathering ---------- */
+function craft(){
+  S.craftX = S.focus!=='all' ? S.focus : (S.craftX || 'arr'); S.craftSeg = S.craftSeg || 'recipes';
+  const x = S.craftX, seg = S.craftSeg, br = BR[x];
+  const jobs = seg==='gather' ? ['MIN','BTN'] : ['CRP','BSM','ARM','GSM','LTW','WVR','ALC','CUL'];
+  const cols = br.map(s=>String(s+4)).concat(seg==='recipes'?['★']:seg==='gather'?['U']:[]);
+  let body = '';
+  if (seg==='fish'){
+    N['big'+x] = N['big'+x]||0;
+    body = `<h2 class="sh">Fishing log by region <span>FSH Lv ${CLV.FSH}</span></h2><div class="card">${Object.entries(FISH[x]).map(([r,holes])=>{ const reg = {kind:'fish',x,name:r,parent:'craft'};
+      return drill(r, holes.filter(hh=>C.has(`fish:${x}:${r}:${hh}`)).length, holes.length, reg, pinB(`reg:fish:${x}:${r}`, r+' fishing holes', 'region', reg)); }).join('')}</div>
+      <h2 class="sh">Big Fish</h2><div class="card">${row('Big Fish caught', `${N['big'+x]} of ${DATA.BIGFISH[x]||0} with time or weather windows`, stepN('big'+x,0,DATA.BIGFISH[x]||0,1,'Big Fish'), bar(N['big'+x], DATA.BIGFISH[x]||0))}</div>
+      ${sect('Spearfishing', [{name:'Spearfishing', x:'hw', lock:{msq:'hw0'}, html:()=>row(`Spearfishing log`, `${N['spear'+x]??0} of ${DATA.SPEAR[x]||0} fish in ${EXP[x][1]}`, (N['spear'+x]=N['spear'+x]??0, stepN('spear'+x,0,DATA.SPEAR[x]||0,1,'fish')), bar(N['spear'+x],DATA.SPEAR[x]||0), pinB('spear'+x,'Spearfishing log','craft'))}])}
+      ${sect('Ocean fishing', [{name:'Ocean fishing', x:'shb', lock:{msq:'shb0'}, html:()=>''}])}`;
+  } else if (seg==='deliv'){
+    body = `${sect('Collectables', ['Collectables appraiser: tier 1','Collectables appraiser: tier 2','Collectables appraiser: tier 3'].map((n,i)=>({name:n, x:'hw', lock:{msq:'hw0'}, html:()=>box('coll-t'+i, n)})))}
+      ${sect('Studium deliveries', [{name:'Studium', x:'ew', lock:{msq:'ew0'}, html:()=>''}])}
+      <p class="sample">Custom Deliveries live in Ranks &amp; reputation, since they're a relationship with a rank.</p>`;
+  } else {
+    const grid = `<div class="cgrid" style="grid-template-columns:44px repeat(${cols.length},minmax(0,1fr))"><span></span>${cols.map(c=>`<span class="ch">${c}</span>`).join('')}
+      ${jobs.map(j=>`<span class="job">${j}<small>Lv ${CLV[j]}</small></span>${cols.map((c,i)=>{ const start = i<br.length ? br[i] : CAP[x]; const key = `${seg}:${x}:${j}:${i}`; const low = start > CLV[j];
+        const pk = S.pick && S.pick.id===`log:${seg}:${x}`; const tg = (S.targets[`log:${seg}:${x}`]||{}).cells||[];
+        return `<button class="cell ${C.has(key)?'on':''} ${pk&&S.pick.set.has(key)?'pick':''} ${!pk&&tg.includes(key)?'tgt':''}" ${low&&!pk?'disabled':''} data-${pk?'tcell':'c'}="${key}" aria-label="${j} ${i<br.length?'level '+start+' to '+(start+4):c}" aria-pressed="${C.has(key)}">${seg==='furn'?'':(((DATA.CRAFTN[j]||{})[x]||[])[i] ?? '')}</button>`; }).join('')}`).join('')}</div>`;
+    const done = jobs.reduce((s,j)=>s+cols.filter((_,i)=>C.has(`${seg}:${x}:${j}:${i}`)).length,0);
+    const nItems = seg==='furn' ? 0 : jobs.reduce((s,j)=>s+((DATA.CRAFTN[j]||{})[x]||[]).reduce((a,b)=>a+b,0),0);
+    body = `<h2 class="sh">${{recipes:'Crafting log',furn:'Furnishing recipes',gather:'Gathering log'}[seg]} <span>${done} of ${jobs.length*cols.length} brackets</span></h2>
+      <div class="card" style="padding:10px;overflow-x:auto">${grid}</div>
+      <p class="sample">${nItems?`${fmtN(nItems)} ${seg==='gather'?'gathering log items':'recipes'} in this expansion; each square shows how many are in that bracket. `:''}Each column is a 5-level bracket of the in-game log (the number is its top level)${seg==='recipes'?'; ★ is star recipes and master books':seg==='gather'?'; U is unspoiled and legendary nodes':''}. Greyed cells are above that job's level.</p>`;
+  }
+  const logPin = seg!=='fish' ? pinB(`log:${seg}:${x}`, `${EXP[x][1]} ${{recipes:'crafting log',furn:'furnishing recipes',gather:'gathering log'}[seg]}`, 'craft') : '';
+  if (logPin) body = body.replace('</span></h2>', '</span></h2>'.replace('</h2>','')+'</h2>').replace(/(<h2 class="sh">[\s\S]*?<\/h2>)/, m => m.replace('</h2>', logPin+'</h2>'));
+  if (S.pick && S.pick.id===`log:${seg}:${x}`) body = `<div class="pickbar">Tap the brackets you want as this goal (${S.pick.set.size} picked).<div class="btnrow"><button class="advance" data-picksave>Pin goal</button><button class="ghost" data-pickall>Next for each</button><button class="ghost" data-pickcancel>Cancel</button></div></div>` + body;
+  else if (S.targets[`log:${seg}:${x}`]) body = `<p class="sample" style="color:var(--quest)">Outlined squares are your pinned goal.</p>` + body;
+  return `${topbar('Crafting & gathering',true)}
+    <div class="seg">${[['recipes','Recipes'],['furn','Furniture'],['gather','Gathering'],['fish','Fishing'],['deliv','Deliveries']].filter(([k])=>k!=='deliv'||msqDone('hw0')||!S.spoiler).map(([k,l])=>`<button data-cseg="${k}" aria-pressed="${seg===k}">${l}</button>`).join('')}</div>
+    <div class="chips">${Object.keys(EXP).map(k=>`<button class="chip" data-cx="${k}" aria-pressed="${x===k}"><span class="dot" style="background:var(--x-${k})"></span>${EXP[k][1]} · ${k==='arr'?'1':BR[k][0]}–${CAP[k]}</button>`).join('')}</div>${body}`;
+}
+/* ---------- Region checklist (side quests in a zone, fishing holes in a region) ---------- */
+function region(){
+  const r = S.reg; let items = [];
+  if (r.kind==='fish') items = FISH[r.x][r.name].map(hh=>[`fish:${r.x}:${r.name}:${hh}`, hh, 'Fishing hole']);
+  else if (r.kind==='zone') items = exItems(EXZ.find(z=>z[0]===r.k));
+  else if (r.kind==='hunt') items = HUNTS[r.x].map(([m,d])=>[`hunt:${m}`, m, d || 'S-rank mark']);
+  else { const z = ZONES.find(z=>z[0]===r.k); items = z[5].map((n,i)=>[`zq:${r.k}:${i}`, n, 'Sidequest']); }
+  S.regKeys = items.map(i=>i[0]); const d = items.filter(i=>C.has(i[0])).length;
+  return `${topbar(esc(r.name),true)}
+    <div class="panel"><span class="grow"><span class="lbl">${r.kind==='fish'?'Fishing holes':r.kind==='zone'?'Zone checklist':r.kind==='hunt'?'Marks killed':'Sidequests'}</span><br><span class="val">${d} of ${items.length} done</span></span>${pinB(r.kind==='fish'?`reg:fish:${r.x}:${r.name}`:r.kind==='zone'?'reg:zone:'+r.k:r.kind==='hunt'?'reg:hunt:'+r.x:'reg:side:'+r.k, r.name, 'region', r)}</div>
+    <div class="btnrow"><button class="advance" data-markall="1">Mark all done</button><button class="ghost" data-markall="0">Clear all</button></div>
+    <div class="card" style="margin-top:12px">${items.map(([k,n,s])=>box(k,n,s)).join('')}</div>
+    ${r.kind==='hunt'?'<p class="sample">Marks with a notable drop show it under the name; tapping through to the drop in Collections comes in the full app.</p>':r.kind==='side'?'<p class="sample">Quest names are placeholders in this mockup.</p>':r.kind==='zone'?'<p class="sample">Vista and current numbers stand in for their real names.</p>':'<p class="sample">La Noscea uses real fishing hole names; other regions use placeholders.</p>'}`;
+}
+/* ---------- Exploration ---------- */
+const EXZ = DATA.EXZ;  // [key, zone, expansion, story gate, aetherytes, vistas, currents]
+const exItems = z => [...z[4].map(a=>[`ex:${z[0]}:ae:${a}`, a, 'Aetheryte']), [`ex:${z[0]}:map`,'Map fully discovered','Map'], ...z[5].map((v,i)=>[`ex:${z[0]}:v${i}`, v, 'Sightseeing log']), ...z[6].map((c,i)=>[`ex:${z[0]}:c${i}`, c, 'Aether current'])];
+EXZ.forEach(z => { if (mIdx(z[3]) < DATA.START - 120) exItems(z).forEach(i => C.add(i[0])); });
+function explore(){
+  const byX = Object.keys(EXP).filter(inFocus).map(x => sect(`${EXP[x][0]} zones`, EXZ.filter(z=>z[2]===x).map(z=>({name:z[1], x, lock:{msq:z[3]}, html:()=>{ const it = exItems(z); const reg = {kind:'zone',k:z[0],name:z[1],parent:'explore'};
+    return drill(z[1], it.filter(i=>C.has(i[0])).length, it.length, reg, pinB('reg:zone:'+z[0], z[1]+' exploration','region',reg)); }})), 'tap a zone')).join('');
+  return `${topbar('Exploration',true)}${focusChips()}${byX}<p class="sample">Each zone holds its aetherytes, map, sightseeing vistas and aether currents.</p>`;
+}
+/* ---------- Open world ---------- */
+const HUNTS = DATA.HUNTS, HUNTGATE = DATA.HUNTGATE;
+['Croakadile','Bonnacon','Nandi','Brontes','Safat'].forEach(m=>C.add('hunt:'+m));
+/* ---------- Leves: every levequest, by type, split by expansion ---------- */
+const LEVES = DATA.LEVES;
+const XGATE = Object.fromEntries(XKEYS.map(x => [x, x==='arr' ? null : (MSQ.find(m=>m.x===x)||{}).id]));
+const LEVE_ORDER = ['Battlecraft','Carpenter','Blacksmith','Armorer','Goldsmith','Leatherworker','Weaver','Alchemist','Culinarian','Miner','Botanist','Fisher','The Maelstrom','Order of the Twin Adder','Immortal Flames'];
+function leves(){
+  const types = [...new Set(LEVES.map(l=>l[3]))].sort((a,b)=>(LEVE_ORDER.indexOf(a)+99)%999-(LEVE_ORDER.indexOf(b)+99)%999);
+  const body = types.map(t => {
+    const all = LEVES.filter(l=>l[3]===t && inFocus(l[5])); if (!all.length) return '';
+    const open = all.filter(l=>!XGATE[l[5]] || msqDone(XGATE[l[5]])), later = all.length - open.length;
+    if (!open.length && S.spoiler) return '';
+    const key = 'leves:'+t; S.big.add(key); const d = open.filter(l=>C.has('leve:'+l[0])).length;
+    const rows = S.spoiler ? open : all;
+    const inner = isClosed(key) ? '' : `<div class="card">${byExpansion(rows, l=>l[5], key, l=>box('leve:'+l[0], l[1], `Lv ${l[2]} · ${esc(l[4])}`))}${later&&S.spoiler?`<div class="subgrp" style="color:var(--muted);font-weight:600">${small(ICON.locked)}<span>${later} more open later in the story</span></div>`:''}</div>`;
+    return secHead(esc(t), `${d} / ${open.length}`, key) + inner; }).join('');
+  return `${topbar('Leves',true)}${focusChips()}${orEmpty(body)}
+    <p class="sample">Grouped by the job that takes them. Your leve allowance timer is under Timers.</p>`;
+}
+function world(){
+  const hl = [['hlg','Gladiator hunting log'],['hlc','Conjurer hunting log'],['hlgc','Grand Company hunting log']].map(([k,n])=>({name:n, x:'arr', html:()=>{ N[k] = N[k] ?? {hlg:5,hlc:3,hlgc:2}[k]; return row(n, `Rank ${N[k]} of 5`, stepN(k,0,5,1,n), bar(N[k],5), pinB(k,n,'world')); }}));
+  const hunts = Object.entries(HUNTS).map(([x,list])=>({name:EXP[x][0]+' S-ranks', x, lock:{msq:HUNTGATE[x]}, html:()=>{ const reg = {kind:'hunt',x,name:EXP[x][0]+' S-ranks',parent:'world'}; return drill(EXP[x][0]+' S-rank marks', list.filter(m=>C.has('hunt:'+m[0])).length, list.length, reg, pinB('reg:hunt:'+x, EXP[x][1]+' S-ranks','region',reg)); }}));
+  const SFZ = [['lake','Lakeland',0,0],['khol','Kholusia',1,3],['amh','Amh Araeng',0,0],['ilm','Il Mheg',0,0],['rak',"The Rak'tika Greatwood",0,0],['tem','The Tempest',0,0]];
+  SFZ.forEach(([k,,r,n])=>{ if (LAD['sf-'+k]==null){ LAD['sf-'+k] = r; N['sfn-'+k] = n; } });
+  const need = r => [6,6,60][r] ?? 0;
+  const fate = SFZ.map(([k,n])=>({name:n, x:'shb', lock:{msq:'shb0'}, html:()=>{ const r = LAD['sf-'+k], nn = need(r);
+    return `<div class="item"><div class="body"><div class="nm">${esc(n)}${xtag('shb')}</div><div style="margin-top:6px">${named('sf-'+k,['Rank 1','Rank 2','Rank 3'])}</div>
+      ${r<3?`<div class="field" style="margin-top:6px">FATEs toward ${r?'rank '+(r+1):'rank 1'}: ${stepN('sfn-'+k,0,nn,1,'FATEs')} <span>of ${nn}</span></div>`:'<div class="sub">Max rank</div>'}</div>${pinB('sf-'+k, n+' shared FATE rank','world')}</div>`; }}));
+  const maps = DATA.TMAPS.filter(([,x])=>inFocus(x)).map(([n,x])=>({name:n, x, html:()=>box('tm:'+n, n, 'Dig one up')}));
+  const td = DATA.TDUNG.filter(([,x])=>inFocus(x)).map(([n,x])=>[n,x,HUNTGATE[x]]).map(([n,x,m])=>({name:n, x, lock:{msq:m}, html:()=>box('td:'+n, n, 'Treasure dungeon')}));
+  return `${topbar('Open world',true)}${focusChips()}${sect('Hunting logs', hl)}${sect('Elite hunts', hunts)}${sect('FATEs', fate)}${sect('Treasure maps', maps)}${sect('Treasure dungeons', td)}
+    <p class="sample">FATE completion achievements per zone would sit under FATEs; with spoilers on, that section stays hidden until shared FATE ranks unlock.</p>`;
+}
+/* ---------- Exchanges ---------- */
+const COMPS = DATA.COMPS;
+const SHOPS = DATA.SHOPS;
+const missingOf = s => s.items.filter(i=>!OWN.has(i[0]));
+const SHOP_TYPES = [
+  ['Allied society vendors', /Amalj'ok|Goldleaf|Cobaltpiece|Oaknot|Whitebone|Black Copper Gil|Carved Kupo Nut|Namazu Koban|Dreamstaff|Kojin Sango|Psashp|Fae Fancy|Qitari Compliment|Frogment|Arkasodara Pana|Loporrit Carat|Omicron Omnitoken|Pelu Pelplume|Mamool Ja Nanook|Dancing Wing|Sanguinite|Resplendent Feather/],
+  ['Tomestones', /Allagan Tomestone/],
+  ['Gemstone traders', /Gemstone/],
+  ['Raid and trial tokens', /Totem|Bolt|Alexandrian Gear|Demimateria|Mantle|Movement Score|Fragment|Rathalos|Guardian|Burning Horn|Exciting Tonic/],
+  ['Hunts and special FATEs', /Clan Mark|Centurio|Allied Seal|Sack of Nuts|Ixion Horn|Formidable|Archaeotania|Daivadipa|Ttokrrone|Mica Magicog/],
+  ['Variant dungeons and field ops', /Potsherd|Sil'dihn|Shishu|Aloalo Coin|Corvosi|Bozjan|Enlightenment|Orthos|Unidentified Magitek|Sassho-seki/],
+  ['Scrips', /Scrip/],
+  ['Grand Company', /Storm Seal|Serpent Seal|Flame Seal/],
+  ['Gold Saucer', /MGP|MGF|Chocobo Feather/],
+  ['PvP', /Wolf Mark|Trophy Crystal/],
+  ['Voyages, ventures and exploration', /Voyage Spoil|Cowrie|Cosmocredit|Venture/],
+  ['Seasonal events', /MMX|Chocolate|Cookie|Fête|Faire|Good Cheer|Starlight|Egg|Vilekin|Certificate of Collaboration/],
+  ['Gil vendors', /^Gil$/],
+];
+const shopType = s => { const names = s.cur.map(c=>COMPS[c].n); for (const [t, rx] of SHOP_TYPES) if (names.some(n=>rx.test(n))) return t; return 'Other'; };
+SHOPS.forEach(s => s.type = shopType(s));
+const HAVE = {};
+const fmtN = n => n.toLocaleString();
+const needFor = (s,c) => missingOf(s).filter(i=>i[3]===c).reduce((a,i)=>a+i[2],0);
+function shops(){
+  const ents = SHOPS.map(s=>({name:s.n, x:s.x, type:s.type, lock:{msq:s.msq}, html:()=>{ const m = missingOf(s); const types = [...new Set(m.map(i=>i[1]))];
+    if (S.onlyMissing && !m.length) return '';
+    const needs = s.cur.map(c=>{ const left = Math.max(0, needFor(s,c)-(HAVE[c]||0)); return left ? `${fmtN(left)} ${COMPS[c].n.replace(' (sample)','')}` : ''; }).filter(Boolean);
+    return `<button class="drill" data-shop="${s.id}"><span><b>${esc(s.n)}</b>${S.focus==='all'?xtag(s.x):''}<div class="sub">${esc(s.w)} · ${m.length ? `missing ${m.length}: ${types.join(', ')}` : 'everything collected'}${needs.length?`<br>Still need ${esc(needs.slice(0,2).join(', '))}${needs.length>2?` and ${needs.length-2} more`:''}`:''}</div></span><span class="cd">${s.items.length-m.length}/${s.items.length}</span>${CHEV}</button>`; }}));
+  return `${topbar('Exchanges',true)}${focusChips()}
+    <div class="toggle" style="border:0"><span><b>Only shops with something missing</b></span><button class="sw" role="switch" aria-checked="${!!S.onlyMissing}" data-onlymiss aria-label="Only shops with something missing"></button></div>
+    ${(() => { const owned = t => { const its = SHOPS.filter(s=>s.type===t && inFocus(s.x)).flatMap(s=>s.items); return `${fmtN(its.filter(i=>OWN.has(i[0])).length)} / ${fmtN(its.length)} owned`; };
+      const out = [...SHOP_TYPES.map(t=>t[0]), 'Other'].map(t => sect(t, ents.filter(e=>e.type===t), owned(t))).join('');
+      return out || '<div class="stubmsg"><b>No shops yet</b>They appear as your story reaches them.</div>'; })()}
+    <p class="sample">Owning something here ticks it in Collections too, and the other way round.</p>`;
+}
+function shop(){
+  const s = SHOPS.find(x=>x.id===S.shop);
+  return `${topbar(esc(s.n),true)}
+    <div class="panel"><span class="grow"><span class="lbl">Where</span><br><span class="val">${esc(s.w)}</span>${xtag(s.x)}</span>${pinB('shop:'+s.id, s.n, 'shops')}</div>
+    <h2 class="sh">What you need <span>for everything you're missing</span></h2>
+    <div class="card">${s.cur.map(c=>{ const need = needFor(s,c), have = HAVE[c]||0, left = Math.max(0, need-have);
+      return `<div class="tm"><span><button class="nmbtn" data-comp="${c}">${esc(COMPS[c].n)}</button><div class="sub">Need ${fmtN(need)} · ${left ? `<b style="color:var(--warn)">${fmtN(left)} more to go</b>` : '<b style="color:var(--accent)">you have enough</b>'}</div></span>
+        <span class="field" style="margin:0">I have <input type="number" min="0" value="${have}" data-have="${c}" aria-label="How many ${esc(COMPS[c].n)} you have" style="width:88px"></span>
+        ${bar(Math.min(have,need), need||1)}</div>`; }).join('')}</div>
+    <p class="sample">Tap a currency's name for what it is and where it drops.</p>
+    <h2 class="sh">Rewards <span>${s.items.length-missingOf(s).length} of ${s.items.length} owned</span></h2>
+    <div class="card">${s.items.map(([n,t,cost,c,lock])=>`<div class="ownrow"><button class="own" role="checkbox" aria-checked="${OWN.has(n)}" data-own="${esc(n)}" aria-label="Own ${esc(n)}">${TICK}</button><div class="body"><div class="nm">${esc(n)}</div><div class="sub">${esc(t)} · ${fmtN(cost)} ${esc(COMPS[c].n)}${lock?` · <span style="color:var(--quest)">needs ${esc(lock)}</span>`:''}</div></div></div>`).join('')}</div>`;
+}
+/* ---------- Pastimes ---------- */
+function pastimes(){
+  S.past = S.past || ['Performance (playing instruments)','Mini Cactpot','Jumbo Cactpot','Fashion Report','Leap of Faith'];
+  return `${topbar('Pastimes',true)}<p class="sample" style="padding-top:0">Activities that don't unlock much but are still worth doing once. Add your own.</p>
+    <div class="card">${S.past.map((n,i)=>`<div class="ownrow"><button class="own" role="checkbox" aria-checked="${C.has('past:'+n)}" data-c="${esc('past:'+n)}" aria-label="${esc(n)}">${TICK}</button><div class="body"><div class="nm">${esc(n)}</div></div><button class="pinbtn" data-delpast="${i}" aria-label="Remove ${esc(n)}">✕</button></div>`).join('')}</div>
+    <div class="btnrow"><input class="note" id="newpast" placeholder="Add an activity" aria-label="New activity"><button class="advance" data-addpast style="flex:0 0 auto">Add</button></div>`;
+}
+/* ---------- Lifestyle projects ---------- */
+function life(){
+  const reb = [
+    {name:'Doman Enclave reconstruction', x:'sb', lock:{q:'domanQ'}, html:()=>row(`Doman Enclave${xtag('sb')}`, N.enclave===100?'Fully rebuilt':`${N.enclave}% rebuilt`, stepN('enclave',0,100,25,'rebuild'), bar(N.enclave,100), pinB('enclave','Doman Enclave','life'))},
+    {name:'Island Sanctuary', x:'ew', lock:{msq:'ew0'}, html:()=>{ N.isle = N.isle ?? 0; return row(`Island Sanctuary${S.focus==='all'?xtag('ew'):''}`, `Sanctuary rank ${N.isle} of ${DATA.ISLAND}`, stepN('isle',0,DATA.ISLAND,1,'sanctuary rank'), bar(N.isle,DATA.ISLAND), pinB('isle','Island Sanctuary rank','life')); }},
+    {name:'Cosmic Exploration', x:'dt', lock:{msq:'dt0'}, html:()=>box('cosmic-tools','Cosmic tools for every crafter and gatherer','Tracked under Gear & relics')}];
+  const hs = [['house-own','Own a house or apartment'],['house-garden','Gardening achievements'],['house-furnish','Furnishing achievements']].map(([k,l])=>({name:l, x:'arr', html:()=>box(k,l)}));
+  const sky = [{name:'Ishgard Restoration', x:'hw', lock:{msq:'shb2'}, html:()=>box('sky-firmament','Firmament fully restored','Skybuilders\' Scrip rewards are under Exchanges')},{name:'The Diadem', x:'hw', lock:{msq:'shb2'}, html:()=>box('sky-diadem','Diadem gathering and crafting achievements')}];
+  return `${topbar('Lifestyle projects',true)}${focusChips()}${orEmpty(sect('Rebuilding', reb)+sect('Skybuilders', sky)+sect(`Housing ${xtag('arr')}`, hs))}
+`;
+}
+/* ---------- Side games & PvP ---------- */
+function games(){
+  const LOCK = (o => o.msq ? {msq:o.msq} : o.q ? {q:o.q} : null);
+  const acts = DATA.GS.map(g=>({name:g.n, x:null, lock:LOCK(g), html:()=>{ const key = 'gs:'+g.n, open = S.open.has(key);
+    const items = [...(g.games||[]).map(n=>['gate-'+n, n, 'GATE']), ...(g.ach||[]).map(n=>['own:'+n, n, 'Achievement'])];
+    const d = items.filter(i=>i[0].startsWith('own:')?OWN.has(i[1]):C.has(i[0])).length;
+    return `<div class="item" style="display:block;padding:0"><div style="display:flex;align-items:center"><button class="grp" data-grp="${esc(key)}" aria-expanded="${open}" ${items.length?'':'disabled'}>${items.length?CHEV:''}<span class="gn"><b>${esc(g.n)}</b><span class="sub" style="font-weight:400">${esc(g.what)}${g.weekly?' · weekly':''}</span></span><span class="gc">${items.length?`${d} / ${items.length}`:''}</span></button>${pinB(key, g.n, 'games')}</div>
+      ${open?(g.what?`<div class="gswhat">${esc(g.what)}</div>`:'')+items.map(([k,n,s])=>k.startsWith('own:')?ownBox(n,s):box(k,n,s)).join(''):''}</div>`; }}));
+  return `${topbar('Gold Saucer',true)}${sect('Activities', acts)}
+    <div class="card" style="margin-top:12px"><button class="drill" data-go="shops"><span><b>MGP prize exchange</b><div class="sub">Under Exchanges › Gold Saucer</div></span><span></span>${CHEV}</button>
+    <button class="drill" data-opencoll="Triple Triad cards"><span><b>Triple Triad cards</b><div class="sub">In Collections, with the players who award each card</div></span><span></span>${CHEV}</button></div>`;
+}
+function pvp(){
+  const LOCK = (o => o.msq ? {msq:o.msq} : o.q ? {q:o.q} : null), P = DATA.PVPQ;
+  const modes = [
+    {name:'Crystalline Conflict', x:null, lock:LOCK(P['A Pup No Longer']||{}), html:()=>`<div class="item"><div class="body"><div class="nm">Crystalline Conflict tier</div><div style="margin-top:6px">${named('cc',['Bronze','Silver','Gold','Platinum','Diamond','Crystal'])}</div></div>${pinB('cc','Crystalline Conflict tier','pvp')}</div>`},
+    {name:'Frontline', x:null, lock:LOCK(P['Like Civilized Men and Women']||{}), html:()=>row('Frontline','Open · wins count toward the PvP achievements below','')},
+    {name:'Rival Wings', x:null, lock:LOCK(P['Earning Your Wings']||{}), html:()=>row('Rival Wings','Open · wins count toward the PvP achievements below','')}];
+  const key = 'pvp:ach', open = S.open.has(key), d = DATA.PVPACH.filter(a=>OWN.has(a[0])).length;
+  return `${topbar('PvP',true)}${sect('Modes', modes)}
+    <h2 class="sh">PvP achievements</h2><div class="card"><button class="grp" data-grp="${key}" aria-expanded="${open}">${CHEV}<span class="gn">All PvP achievements</span><span class="gc">${d} / ${DATA.PVPACH.length}</span></button>${open?DATA.PVPACH.map(([n,s])=>ownBox(n, esc(s))).join(''):''}</div>
+    <div class="card" style="margin-top:12px"><button class="drill" data-go="shops"><span><b>Wolf Mark and Trophy Crystal exchanges</b><div class="sub">Under Exchanges › PvP</div></span><span></span>${CHEV}</button></div>
+    <p class="sample">Seasonal series rewards aren't tracked, as decided.</p>`;
+}
+/* ---------- Settings page ---------- */
+function settings(){
+  const sw = (k,l,s,obj) => `<div class="toggle"><span><b>${l}</b>${s?`<br><span class="sub">${s}</span>`:''}</span><button class="sw" role="switch" aria-checked="${obj?obj[k]:S[k]}" data-${obj?'qk':'spk'}="${k}" aria-label="${l}"></button></div>`;
+  const segset = (key,opts) => `<div class="seg">${opts.map(([v,l])=>`<button data-set="${key}|${v}" aria-pressed="${String(S[key])===String(v)}">${l}</button>`).join('')}</div>`;
+  const PALS = [['single','Single accent','One colour for every activity'],['outline','Coloured outlines','Each tile gets its own border colour'],['tint','Tinted tiles','Each tile is lightly washed in its colour'],['ring','Coloured rings','Only the progress ring takes the colour']];
+  const SW = '<span class="sw4">' + ['jobs','duties','gear','coll'].map(k=>`<i style="background:var(--c-${k})"></i>`).join('') + '</span>';
+  return `${topbar('Settings',true)}
+    <div class="setsec"><h3>Character</h3>${S.chars.map((c,i)=>`<button class="pal" data-char="${i}" aria-pressed="${S.char===i}"><span><b>${esc(c)}</b><br><span class="sub">${i===S.char?'Active · progress shown in the app':'Tap to switch'}</span></span></button>`).join('')}
+      <button class="ghost" style="display:block;width:100%;margin-top:8px" data-addchar>+ Add a character</button><p class="sample">Each character keeps its own story position, ticks, goals and timers.</p></div>
+    <div class="setsec"><h3>Spoilers: what to conceal</h3>
+      ${sw('spoiler','Names','Locked things show as ???; sections you haven\'t reached show as ?????.')}
+      ${sw('labels','Expansion and patch labels','No expansion tag, patch number or "steps ahead" count before something unlocks.')}
+      ${sw('strict','Future content','Only the next locked item in each group, plus what you can unlock now.')}
+      <div class="btnrow"><button class="ghost" data-spall="1">Conceal everything</button><button class="ghost" data-spall="0">Show everything</button></div></div>
+    <div class="setsec"><h3>Look</h3>
+      <div style="padding:10px 0"><b>Theme</b>${segset('theme',[['system','System'],['light','Light'],['dark','Dark']])}</div>
+      <div style="padding:4px 0 10px"><b>Activity colours</b>${PALS.map(([k,l,s])=>`<button class="pal" data-pal="${k}" aria-pressed="${S.palette===k}">${k==='single'?'<span class="sw4">'+'<i style="background:var(--accent)"></i>'.repeat(4)+'</span>':SW}<span><b>${l}</b><br><span class="sub">${s}</span></span></button>`).join('')}</div>
+      ${sw('compact','Compact mode','Tighter rows so more fits on screen.')}</div>
+    <div class="setsec"><h3>Behaviour</h3>
+      <div style="padding:10px 0"><b>Open the app on</b>${segset('start',[['home','Home'],['goals','Goals'],['timers','Timers']])}<p class="sub" style="margin-top:6px">Applies next time you open the app.</p></div>
+      ${sw('foldAll','Start sections folded','Every section opens collapsed, so long lists like Dungeons start as one line each. Tap a header to open it.')}
+      <div style="padding:10px 0;border-top:1px solid var(--line)"><b>Time format</b>${segset('h12',[['true','12-hour'],['false','24-hour']])}</div></div>
+    <div class="setsec"><h3>Notifications</h3>
+      ${sw('on','Quiet hours','Nothing notifies you in this window; anything due waits until it ends.',S.quiet)}
+      ${S.quiet.on?`<div class="field">From <input type="time" value="${S.quiet.from}" data-qt="from" aria-label="Quiet hours start"> to <input type="time" value="${S.quiet.to}" data-qt="to" aria-label="Quiet hours end"></div>`:''}
+      <p class="sample">Per-reset digest times live on the Timers tab.</p></div>
+    <div class="setsec"><h3>Your data</h3>
+      <div class="btnrow"><button class="ghost" data-backup="export">Export backup</button><button class="ghost" data-backup="import">Import backup</button></div>
+      <p class="sample">Your progress is saved on this phone as you go. A backup file holds everything for every character, so you can move to another device or restore after a reset. Export one now and then.</p>
+      <div class="btnrow"><button class="ghost" data-resetall style="color:var(--warn)">${S.resetArm?'Tap again to reset':'Reset this character'}</button></div></div>`;
+}
+/* ---------- Quests tab ---------- */
+function quests(){
+  const m = MSQ[S.msq]; const aq = availableQuests();
+  const doneQ = Object.entries(Q).filter(([,q])=>q.done).sort((a,b)=>b[1].at-a[1].at);
+  const recent = doneQ.slice(0,5);
+  const op = S.open.has('doneq');
+  return `${topbar('Quests')}
+    <h2 class="sh">Main story</h2>
+    ${storyCard()}
+    ${S.newIds.length?`<p class="sample" style="color:var(--quest);font-weight:600">${S.newIds.length} duties opened up since your last update. They're marked NEW in Duties.</p>`:''}
+    ${(()=>{ const gq = goldQuests(); return gq.length ? `<h2 class="sh" style="color:var(--gold)">Opens something new <span>${gq.length}</span></h2><div class="card">${gq.map(a=>`<div class="item"><svg class="st" viewBox="0 0 24 24"><rect x="4.5" y="4.5" width="15" height="15" rx="3" transform="rotate(45 12 12)" fill="var(--gold)"/><path d="M12 8v8M8 12h8" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg><div class="body"><div class="nm">${esc(a.q.n)}</div><div class="sub">${esc(a.q.w)}${a.q.lv?` · Lv ${a.q.lv}`:''}</div>
+      <div class="leads">${a.opens.map(g=>`<span><span class="kind gold">New</span>${esc(g.label)} <span class="sub" style="display:inline">in ${esc(g.where)}</span></span>`).join('')}</div></div><button class="qbtn gold" data-qdone="${a.id}">Done</button></div>`).join('')}</div>` : ''; })()}
+    <h2 class="sh">Unlock quests you can do now <span>${aq.length}</span></h2>
+    ${aq.length?`<div class="card">${aq.map(a=>`<div class="item">${ICON.quest}<div class="body"><div class="nm">${esc(a.q.n)}</div><div class="sub">${esc(a.q.w)}${a.q.lv?` · Lv ${a.q.lv}`:''}</div>
+      <div class="leads">${a.unlocks.map(u=>`<span><span class="kind" style="--kc:var(--c-${KCAT[u.kind]||'duties'})">${esc(u.kind)}</span>${esc(u.n)}</span>`).join('')}</div></div><button class="qbtn" data-qdone="${a.id}">Done</button></div>`).join('')}</div>`
+      :'<div class="stubmsg"><b>All caught up</b>Advance the story or level a job to open more.</div>'}
+    ${(()=>{ const jq = readyJobQuests(), rq = readyRoleQuests();
+      return `<h2 class="sh">Job quests ready <span>${jq.length}</span></h2>${jq.length?`<div class="card">${jq.map(x=>`<div class="item">${ICON.quest}<div class="body"><div class="nm">${esc(x.n)} · Lv ${x.l} job quest</div><div class="leads"><span><span class="kind" style="--kc:var(--c-jobs)">Job quest</span>${esc(x.n)} is Lv ${jobLv(x.j)}</span></div></div><button class="qbtn" data-jq="${x.j}|${x.l}">Done</button></div>`).join('')}</div>`:'<p class="sample">None right now. They appear here when a job reaches its next job quest level.</p>'}
+      <h2 class="sh">Role quests ready <span>${rq.length}</span></h2>${rq.length?`<div class="card">${rq.map(x=>`<div class="item">${ICON.quest}<div class="body"><div class="nm">${esc(x.role)} role quest · Lv ${x.l}</div></div><button class="qbtn" data-rq="${x.role}|${x.l}">Done</button></div>`).join('')}</div>`:'<p class="sample">None right now. A role quest appears when any job in that role reaches its level, once the story allows it.</p>'}`; })()}
+    <h2 class="sh">Recently completed <span>newest first</span></h2><div class="card">${recent.map(([id,q],i)=>`<div class="item"><span class="cd" style="width:18px;color:var(--faint)">${i+1}</span><div class="body"><div class="nm">${esc(q.n)}</div><div class="sub">${esc(q.w)}</div>${leadsHTML(unlocksOf(id))}</div><button class="ghost" data-qundo="${id}">Undo</button></div>`).join('')}</div>
+    <div class="card" style="margin-top:14px"><button class="grp" data-grp="doneq" aria-expanded="${op}">${CHEV}<span class="gn">All completed unlock quests</span><span class="gc">${doneQ.length}</span></button>
+      ${op?doneQ.map(([id,q])=>`<div class="item"><div class="body"><div class="nm">${esc(q.n)}</div><div class="sub">${esc(q.w)}</div>${leadsHTML(unlocksOf(id))}</div><button class="ghost" data-qundo="${id}">Mark not done</button></div>`).join(''):''}</div>
+    <p class="sample">Marked something by mistake? Mark it not done here, and anything it unlocked goes back to needing it.</p>`;
+}
+/* ---------- Goals tab ---------- */
+function goalCard(id){
+  const unpin = `<button class="pinbtn" aria-pressed="true" data-pin="${id}" aria-label="Unpin">${PIN(true)}</button>`;
+  const note = `<input class="note" data-note="${id}" placeholder="Add a note" value="${esc(S.notes[id]||'')}" aria-label="Note">`;
+  if (id.startsWith('relic:')){ const j = id.split(':')[1], s = RS[j]||0;
+    return `<div class="goal"><div class="gh"><div class="gt">Zodiac weapon · ${j}<div class="sub">${s?'Now: '+RELIC.st[s-1]:'Not started'}</div></div>${unpin}</div>
+      <div class="track">${RELIC.st.map((_,i)=>`<span class="pip ${i<s?'on':''}" style="cursor:default"></span>`).join('')}</div>
+      ${s<8?`<button class="advance" data-adv="${j}">Reached ${RELIC.st[s]}</button>`:''}${note}</div>`; }
+  const dv = DELIV.find(x=>x.id===id);
+  if (dv) return `<div class="goal"><div class="gh"><div class="gt">${esc(dv.n)}<div class="sub">Custom Deliveries · rank ${dv.r} of 5</div></div>${unpin}</div>${ladder(id,dv.r,5)}${note}</div>`;
+  const d = DUTIES.find(x=>x.id===id);
+  if (d) return `<div class="goal"><div class="gh"><div class="gt">${esc(d.n)}<div class="sub">${d.turns?d.td.filter(Boolean).length+' of '+d.turns.length+' cleared':'Duty'}</div></div>${unpin}</div>
+    ${d.turns?turnChips(d):`<button class="advance" data-done="${id}">Mark cleared</button>`}${note}</div>`;
+  if (id.startsWith('job:')){ const j = id.slice(4), t = S.targets[id], cur = jobLv(j), nmj = JN[j] || JOBS.flatMap(x=>x[1]).find(x=>x[0]===j)[1];
+    const span = Math.max(1,t.to-t.from), pr = Math.min(1,Math.max(0,(cur-t.from)/span));
+    return `<div class="goal"><div class="gh"><div class="gt">${esc(nmj)} to Lv ${t.to}<div class="sub">Now Lv ${cur} · started at ${t.from}</div></div>${unpin}</div>
+      <span class="lvbar"><i style="width:${pr*100}%"></i></span><span class="stepper" style="align-self:flex-start"><button class="sbtn" data-${CLV[j]!=null?'clv':'lv'}="${j}:-1" aria-label="Lower">−</button><span class="sval">${cur}</span><button class="sbtn" data-${CLV[j]!=null?'clv':'lv'}="${j}:1" aria-label="Raise">+</button></span>${note}</div>`; }
+  if (id.startsWith('log:')){ const t = S.targets[id]; const d = t.cells.filter(k=>C.has(k)).length; const [,seg,x] = id.split(':');
+    return `<div class="goal"><div class="gh"><div class="gt">${EXP[x][0]} ${{recipes:'crafting log',furn:'furnishing recipes',gather:'gathering log'}[seg]}<div class="sub">${d} of ${t.cells.length} goal brackets done · tap a bracket when you finish it</div></div>${unpin}</div>
+      <span class="lvbar"><i style="width:${d*100/t.cells.length}%"></i></span>
+      <button class="grp" style="padding:4px 0" data-grp="goal:${esc(id)}" aria-expanded="${S.open.has('goal:'+id)}">${CHEV}<span class="gn" style="font-weight:600;font-size:.88rem">${S.open.has('goal:'+id)?'Hide':'Show'} classes and brackets</span></button>
+      ${!S.open.has('goal:'+id) ? '' : `<div class="card" style="border-radius:10px">${(()=>{ const by = {}; t.cells.forEach(k=>{ const [,,jj,ii] = k.split(':'); (by[jj] = by[jj]||[]).push([k,+ii]); });
+        const br = BR[x], top = ii => ii<br.length ? br[ii]+4 : CAP[x];
+        const lbl = ii => ii<br.length ? `Lv ${br[ii]}–${br[ii]+4}` : (seg==='gather'?'Unspoiled nodes':'★ recipes');
+        return Object.entries(by).map(([jj,cs])=>{ const goalLv = Math.max(...cs.map(([,ii])=>top(ii))), dn = cs.filter(([k])=>C.has(k)).length;
+          return `<div class="item" style="flex-direction:column;gap:6px"><div style="display:flex;gap:8px;align-items:baseline;width:100%"><b style="flex:1">${JN[jj]}</b><span class="cd">${dn}/${cs.length}</span></div>
+            <div class="sub" style="margin:0">Now Lv ${CLV[jj]} · goal: ${seg==='gather'?'gathering':seg==='furn'?'furnishing':'crafting'} log through Lv ${goalLv}${CLV[jj] < goalLv ? ` <span style="color:var(--warn)">(needs Lv ${goalLv})</span>` : ''}</div>
+            <div class="turns" style="margin:0">${cs.map(([k,ii])=>`<button class="turn" aria-pressed="${C.has(k)}" data-c="${k}">${lbl(ii)}</button>`).join('')}</div></div>`; }).join(''); })()}</div>`}
+      <button class="ghost" data-goview="${esc(id)}">Open the full log</button>${note}</div>`; }
+  const mt = META[id];
+  if (mt) return `<div class="goal"><div class="gh"><div class="gt">${esc(mt.t)}<div class="sub">${mt.reg?'Checklist':'Tracker'}</div></div>${unpin}</div><button class="ghost" data-goview="${esc(id)}">Open</button>${note}</div>`;
+  return '';
+}
+function goals(){
+  return `${topbar('Goals')}<p class="sample" style="padding-top:0">Things you're working on. Press and hold any row to pin it here; finished goals unpin themselves.</p>
+    ${S.pins.length?S.pins.map(goalCard).join(''):'<div class="stubmsg"><b>No goals yet</b>Press and hold a duty, delivery client, relic job or any other row to pin it.</div>'}`;
+}
+/* ---------- Timers tab ---------- */
+function timers(){
+  const T = S.timers, now = Date.now();
+  const daily = nextUTC(15), weekly = nextUTC(8,2), gc = nextUTC(20), lv = nextLeve();
+  const ticks = Math.max(0, Math.ceil((T.leves.want - T.leves.have)/3));
+  const leveAt = ticks ? new Date(lv.getTime() + (ticks-1)*12*3600e3) : null;
+  const DAILY = ['Duty roulettes','Allied society quests','Mini Cactpot','Hunt bills'].filter(tOK), WEEKLY = ['Custom Deliveries','Wondrous Tails','Faux Hollows','Raid lockouts'].filter(tOK);
+  const digest = (key,label,when,items) => { const g = T[key];
+    return `<div class="tm"><span><b>${label}</b><div class="sub">Resets ${fmtWhen(when)} · in ${fmtLeft(when-now)}</div></span>
+      <button class="bell" aria-pressed="${g.on}" data-dig="${key}" aria-label="Notify for ${label}">${BELL(g.on)}</button>
+      ${g.on?`<div class="field">Notify me at <input type="time" value="${g.at}" data-at="${key}" aria-label="Notification time"> <span>(reset is ${localAt(key==='dailyDigest'?15:8)})</span></div>
+      <div class="checks" style="grid-column:1/-1">${items.map(i=>`<button class="chip" style="padding:4px 10px;font-size:.78rem" aria-pressed="${g.items.includes(i)}" data-digi="${key}|${i}">${i}</button>`).join('')}</div>
+      <div class="sub" style="grid-column:1/-1;margin-top:6px">Preview: "${g.items.filter(tOK).length?g.items.filter(tOK).join(' and ')+' available':'Nothing selected'}"</div>`:''}</div>`; };
+  const ret = T.retainers.map((r,i)=>{ const left = r.end ? r.end-now : null;
+    if (!r.active) return `<div class="tm off"><span><b>${esc(r.n)}</b><div class="sub">Inactive · unpaid retainer slot</div></span><button class="ghost" data-retact="${i}">Activate</button>
+      <div class="opts">${S.armRet===i?'':`<button class="ghost" data-delret="${i}">Remove</button>`}</div>${S.armRet===i?confirmRet(r,i):''}</div>`;
+    return `<div class="tm"><span><input class="note" style="font-weight:700;padding:3px 6px;width:auto;max-width:170px" value="${esc(r.n)}" data-retname="${i}" aria-label="Retainer name"><div class="sub">${r.task?esc(r.task):'Idle'}</div></span>
+      <span class="ctrl">${r.end?`<span class="cd ${left<=0?'ready':''}">${fmtLeft(left)}</span>`:`<button class="advance" data-send="${i}">Send</button>`}<button class="bell" aria-pressed="${r.alarm}" data-retalarm="${i}" aria-label="Alarm when ${esc(r.n)} returns">${BELL(r.alarm)}</button></span>
+      <div class="opts">${r.end?`<button class="ghost" data-collect="${i}">${left<=0?'Collected':'Recalled early'}</button>`:''}${i>=2?`<button class="ghost" data-retact="${i}">Mark inactive</button>`:''}${S.armRet===i?'':`<button class="ghost" data-delret="${i}">Remove</button>`}</div>${S.armRet===i?confirmRet(r,i):''}</div>`; }).join('');
+  const sq = T.squadron.end ? T.squadron.end-now : null;
+  return `${topbar('Timers')}
+    <p class="sample" style="padding-top:0">Times shown in your time zone. Only features you've unlocked appear here; Faux Hollows, for example, shows up once your story reaches it. Notifications would come from the installed app.</p>
+    <h2 class="sh">Reset digests</h2><div class="card">${digest('dailyDigest','Daily reset',daily,DAILY)}${digest('weeklyDigest','Weekly reset',weekly,WEEKLY)}
+      <div class="tm"><span><b>Grand Company supply</b><div class="sub">Resets ${fmtWhen(gc)} · in ${fmtLeft(gc-now)}</div></span><button class="bell" aria-pressed="${T.gc}" data-gc aria-label="Notify for Grand Company">${BELL(T.gc)}</button></div></div>
+    <h2 class="sh">Allowances</h2><div class="card">
+      <div class="tm"><span><b>Leve allowances</b><div class="sub">+3 every 12 hours, max 100 · next +3 ${fmtWhen(lv)}</div></span><button class="bell" aria-pressed="${T.leves.on}" data-leve aria-label="Notify for leves">${BELL(T.leves.on)}</button>
+        <div class="field">I have <input type="number" min="0" max="100" value="${T.leves.have}" data-lvh aria-label="Leves I have"> · notify at <input type="number" min="0" max="100" value="${T.leves.want}" data-lvw aria-label="Notify at"></div>
+        <div class="sub" style="grid-column:1/-1;margin-top:4px">${ticks?`Reaches ${Math.min(100,T.leves.have+ticks*3)} on <b style="color:var(--ink)">${fmtWhen(leveAt)}</b>`:'Already there'}</div></div>
+      ${tOK('Custom Deliveries')?`<div class="tm"><span><b>Custom Deliveries</b><div class="sub">12 a week, shared across clients · 10 left this week</div></span><button class="bell" aria-pressed="${T.weeklyDigest.items.includes('Custom Deliveries')}" data-digi="weeklyDigest|Custom Deliveries" aria-label="Include in weekly digest">${BELL(T.weeklyDigest.items.includes('Custom Deliveries'))}</button></div>`:''}</div>
+    <h2 class="sh">Your reminders <span>${S.custom.length}</span></h2>
+    ${S.custom.length?`<div class="card">${S.custom.map((c,i)=>{ const nx = nextOcc(c); const t = nx ? new Date(`2000-01-01T${c.time}`).toLocaleTimeString([], {hour:'numeric',minute:'2-digit',hour12:S.h12}) : '';
+      return `<div class="tm"><span><b>${esc(c.n)}</b><div class="sub">${repLabel(c)} at ${t}${c.lead?` · alert ${c.lead} min before`:''}</div></span>
+        <span class="ctrl"><span class="cd ${nx&&nx-now<=0?'ready':''}">${nx ? (nx-now>0 ? fmtLeft(nx-now) : 'Passed') : '—'}</span><button class="bell" aria-pressed="${c.alarm}" data-remalarm="${i}" aria-label="Alarm for ${esc(c.n)}">${BELL(c.alarm)}</button></span>
+        <div class="opts"><button class="ghost" data-delrem="${i}">Remove</button></div></div>`; }).join('')}</div>`:''}
+    ${S.addingRem ? `<div class="card" style="padding:12px;margin-top:8px">
+        <input class="note" id="rn" placeholder="What is it? e.g. FC Savage raid" aria-label="Reminder name">
+        <div class="field">At <input type="time" id="rt" value="20:00" aria-label="Time">
+          <select id="rr" aria-label="Repeat"><option value="once">Once</option><option value="daily">Every day</option><option value="weekly" selected>Every week</option></select>
+          <select id="rd" aria-label="Day of week">${DOW.map((d,i)=>`<option value="${i}" ${i===new Date().getDay()?'selected':''}>${d}</option>`).join('')}</select>
+          <input type="date" id="rdt" aria-label="Date (for one-time reminders)"></div>
+        <div class="field">Alert <select id="rl" aria-label="Alert lead time"><option value="0">at the time</option><option value="10">10 min before</option><option value="15" selected>15 min before</option><option value="30">30 min before</option><option value="60">1 hour before</option></select></div>
+        <p class="sample">Day applies to weekly reminders; date applies to one-time ones.</p>
+        <div class="btnrow"><button class="advance" data-saverem>Add reminder</button><button class="ghost" data-addrem>Cancel</button></div></div>`
+      : `<button class="ghost" style="display:block;width:100%;margin-top:8px" data-addrem>+ Add a reminder</button>`}
+    <h2 class="sh">Events</h2><div class="card">
+      <div class="tm"><span><b>Seasonal event (sample)</b><div class="sub">Rewards: a minion and a glamour set</div></span><span class="cd">ends in 12d</span></div>
+      <div class="tm"><span><b>Moogle Treasure Trove (sample)</b><div class="sub">Past event rewards for tomestones · 3 of 9 claimed</div></span><span class="cd">ends in 26d</span></div></div>
+    <h2 class="sh">Retainer ventures <span>${T.retainers.length}</span></h2><div class="card">${ret}</div><button class="ghost" style="display:block;width:100%;margin-top:8px" data-addret>+ Add retainer</button><p class="sample">Two retainer slots are free. Extra slots are paid; mark one inactive while you aren't paying for it and it keeps its name but drops out of timers.</p>
+    <h2 class="sh">Adventurer Squadron</h2><div class="card"><div class="tm"><span><b>Command mission</b><div class="sub">${sq?'Squadron is out':'Idle'}</div></span>
+      <span class="ctrl">${sq?`<span class="cd ${sq<=0?'ready':''}">${fmtLeft(sq)}</span>`:`<button class="advance" data-squad>Sent</button>`}<button class="bell" aria-pressed="${T.squadron.alarm}" data-sqalarm aria-label="Alarm when the squadron returns">${BELL(T.squadron.alarm)}</button></span></div></div>
+    <p class="sample">The bell on each retainer and on the squadron turns its "back now" alarm on or off.</p>`;
+}
+
+/* ================= render + sheets ================= */
+function nav(){
+  const items = [['activities','Activities','<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/>'],['quests','Quests','<rect x="6" y="6" width="12" height="12" rx="2" transform="rotate(45 12 12)"/><path d="M12 9v6M9 12h6"/>'],['home','Home','<path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z"/>'],['timers','Timers','<circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9 2h6"/>'],['goals','Goals','<path d="M9 3h6l-1 6 4 4H6l4-4z"/><path d="M12 13v8"/>']];
+  const aq = availableQuests().length + goldQuests().length + readyJobQuests().length + readyRoleQuests().length;
+  return `<nav class="nav">${items.map(([k,l,p])=>`<button data-tab="${k}" ${S.tab===k?'aria-current="page"':''}>${k==='quests'&&aq?`<span class="badge">${aq}</span>`:''}<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round">${p}</svg>${l}</button>`).join('')}</nav>`;
+}
+const NO_RECENT = new Set(['home','activities','hub','quests','goals','timers','settings','region']);
+function noteRecent(){
+  const v = S.view; if (NO_RECENT.has(v)) return;
+  const c = CATS.find(x=>x.k===v);
+  const label = v==='coll' ? (S.collCat||'Collections') : v==='zone' ? S.zone : v==='zones' ? 'Everything in a zone' : v==='shop' ? ((SHOPS.find(x=>x.id===S.shop)||{}).n||'Shop') : c ? c.n : null;
+  if (!label) return;
+  S.recent = [{label, view:v, collCat:S.collCat, zone:S.zone, shop:S.shop, hub:S.hub}, ...S.recent.filter(r=>r.label!==label)].slice(0,4);
+}
+function render(){
+  if (S.focusAuto) S.focus = MSQ[S.msq].x;
+  noteRecent();
+  scheduleSave();
+  S.big = new Set();
+  const v = S.view;
+  const html = v==='home'?home():v==='activities'?activities():v==='hub'?hub():v==='zones'?zones():v==='zone'?zoneView():v==='quests'?quests():v==='goals'?goals():v==='timers'?timers():v==='duties'||v==='hduties'?duties():v==='jobs'?jobs():v==='gear'?gear():v==='ranks'?ranks():v==='coll'?coll():v==='pvp'?pvp():v==='explore'?explore():v==='world'?world():v==='leves'?leves():v==='pastimes'?pastimes():v==='shops'?shops():v==='shop'?shop():v==='ljob'?ljob():v==='settings'?settings():v==='region'?region():v==='story'?story():v==='field'?field():v==='craft'?craft():v==='life'?life():v==='games'?games():stub(v);
+  document.documentElement.dataset.palette = S.palette;
+  if (S.theme==='system') delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = S.theme;
+  document.documentElement.classList.toggle('compact', S.compact);
+  document.getElementById('app').innerHTML = html + nav();
+  if (S.sheetOpen && (S.sheetOpen.startsWith('duty:') || S.sheetOpen.startsWith('target:') || S.sheetOpen==='settings')) sheet(S.sheetOpen, true);
+}
+function sheet(kind, keep){
+  const L = document.getElementById('layer'); const prev = L.querySelector('.sheet'); const top = keep && prev ? prev.scrollTop : 0;
+  S.sheetOpen = kind; const na = keep ? ' noanim' : '';
+  if (kind==='msq'){
+    const nextI = S.msq + 1, ob = S.onboard, hideName = i => S.spoiler && !ob && i > nextI, hidePatch = i => S.labels && !ob && i > nextI;  // first-time setup shows every quest so you can find your place
+    const patches = [...new Set(MSQ.map(m=>m.patch))];
+    const curP = MSQ[Math.min(nextI, MSQ.length-1)].patch;
+    if (!S.msqPatch) S.msqPatch = curP;
+    const q = (S.msqQ||'').trim().toLowerCase();
+    const row = ({m,i}) => `<button class="patch ${i<=S.msq?'past':''}" data-msq="${i}" aria-pressed="${i===S.msq}"><span class="pn">${i===nextI?'Next':hidePatch(i)?'':m.patch}</span><span class="pt">${hideName(i)?'???':esc(m.n)}</span></button>`;
+    let html = '';
+    if (q){
+      const rows = MSQ.map((m,i)=>({m,i})).filter(({m,i}) => !hideName(i) && m.n.toLowerCase().includes(q));
+      html = `<p class="help">${rows.length} match${rows.length===1?'':'es'}${S.spoiler&&!ob?' (up to your next quest)':''}</p>${rows.map(row).join('')}`;
+    } else {
+      const rows = MSQ.map((m,i)=>({m,i})).filter(({m}) => m.patch===S.msqPatch);
+      if (rows.length <= 30) html = rows.map(row).join('');
+      else for (let b = 0; b < rows.length; b += 20){
+        const blk = rows.slice(b, b+20), key = S.msqPatch+':'+b;
+        const here = blk.some(r => r.i===S.msq || r.i===nextI);
+        const open = S.msqOpen.has(key) ? !here : here;   // the block you're in starts open; tap to toggle any block
+        const dn = blk.filter(r=>r.i<=S.msq).length;
+        html += `<button class="subgrp" data-msqblk="${key}" aria-expanded="${open}">${CHEV}Quests ${b+1}–${b+blk.length}<span class="gc">${dn===blk.length?'Done':dn?`${dn} of ${blk.length} done`:here?'You\'re here':''}</span></button>${open?blk.map(row).join(''):''}`;
+      }
+    }
+    L.innerHTML = `<div class="scrim" data-close></div><div class="sheet${na}" role="dialog" aria-label="Story progress"><div class="grab"></div><h3>Last story quest finished</h3>
+      <div class="msqhead"><input class="search" id="msqq" type="search" placeholder="Search story quests" value="${esc(S.msqQ||'')}" aria-label="Search story quests">
+      ${q ? '' : `<div class="msqchips">${patches.map(p=>{ const i0 = MSQ.findIndex(m=>m.patch===p), fut = hidePatch(i0) && p!==curP, x = MSQ[i0].x;
+        return `<button class="chip" data-msqpatch="${p}" aria-pressed="${p===S.msqPatch}"><span class="dot" style="background:${fut?'var(--faint)':`var(--x-${x})`}"></span>${fut?'?':p}</button>`; }).join('')}</div>`}</div>
+      ${html || '<p class="sample">No story quests match.</p>'}</div>`;
+    if (!keep){ const cur = L.querySelector('.patch[aria-pressed="true"]') || L.querySelector('.patch:not(.past)'); if (cur) cur.scrollIntoView({block:'center'}); const c2 = L.querySelector('.msqchips [aria-pressed="true"]'); if (c2) c2.scrollIntoView({inline:'center', block:'nearest'}); }
+  } else if (kind.startsWith('duty:')){
+    const d = DUTIES.find(x=>x.id===kind.slice(5)); const st = dStatus(d); const c = DCOLL[d.id];
+    const own = list => list.map(([n,t])=>`<div class="ownrow" style="padding-left:30px"><button class="own" role="checkbox" aria-checked="${OWN.has(n)}" data-own="${esc(n)}" aria-label="Own ${esc(n)}">${TICK}</button><div class="body"><div class="nm">${esc(n)}</div><div class="sub">${esc(t)}</div></div></div>`).join('');
+    let body = '';
+    if (st==='quest') body = `<h2 class="sh">How to unlock</h2>${chainHTML(d.q)}${d.after?`<p class="sample">Opens after clearing ${esc(d.after)}.</p>`:''}`;
+    else if (st==='locked') body = `<h2 class="sh">How to unlock</h2>${d.msq && !msqDone(d.msq) ? chainHTML(null, d.msq) : chainHTML(d.q)}${d.after&&!S.spoiler?`<p class="sample">Opens after clearing ${esc(d.after)}.</p>`:''}`;
+    else if (d.turns) body = `<div class="card">${d.turns.map((t,i)=>{ const cl = (c&&!Array.isArray(c)&&c[i])||[]; const co = cl.filter(x=>OWN.has(x[0])).length;
+        return `<div class="ownrow"><button class="own" role="checkbox" aria-checked="${!!d.td[i]}" data-turn="${d.id}:${i}" aria-label="${t} cleared">${TICK}</button><div class="body"><div class="nm">${t}</div><div class="sub">${d.td[i]?'Cleared':'Not cleared'}${cl.length?` · Collectibles ${co}/${cl.length}`:' · No collectibles listed'}</div></div></div>${own(cl)}`; }).join('')}</div>`;
+    else if (st!=='quest' && st!=='locked'){ const cl = c||[]; body = `<div class="card"><div class="ownrow"><button class="own" role="checkbox" aria-checked="${!!d.done}" data-done="${d.id}" aria-label="Cleared">${TICK}</button><div class="body"><div class="nm">Cleared</div></div></div></div>
+        <h2 class="sh">Collectibles <span>${cl.filter(x=>OWN.has(x[0])).length} / ${cl.length}</span></h2>${cl.length?`<div class="card">${own(cl).replaceAll('padding-left:30px','')}</div>`:'<p class="sample">None listed for this duty.</p>'}`; }
+    const canRelock = d.q && Q[d.q].done;
+    const dn = st==='locked' && S.spoiler ? '???' : esc(d.n);
+    L.innerHTML = `<div class="scrim" data-close></div><div class="sheet${na}" role="dialog" aria-label="${dn}"><div class="grab"></div><h3>${dn} ${st==='locked'&&S.labels?'':xtag(d.x)}</h3>
+      <p class="help">${d.g.replace(/s$/,'')}${d.q&&st!=='locked'?` · unlocked by <b>${esc(Q[d.q].n)}</b>`:''}</p>${body}
+      ${st==='locked'?'':`<div class="btnrow" style="margin-top:14px"><button class="danger" data-reset="${d.id}">Reset progress</button>${canRelock?`<button class="danger" data-relock="${d.id}">Re-lock</button>`:''}</div>
+      <p class="sample">Reset clears this duty. Re-lock also marks its unlock quest as not done.</p>`}<button class="wide" data-close>Done</button></div>`;
+  } else if (kind.startsWith('comp:')){
+    const c = COMPS[kind.slice(5)];
+    const usedBy = SHOPS.filter(s=>s.cur.includes(kind.slice(5)));
+    L.innerHTML = `<div class="scrim" data-close></div><div class="sheet${na}" role="dialog" aria-label="${esc(c.n)}"><div class="grab"></div><h3>${esc(c.n)}</h3><p class="help">${esc(c.what)}</p>
+      <h2 class="sh">Where it comes from</h2><div class="card">${c.src.map(([n,t,ref])=> t==='duty' ? `<button class="drill" data-duty="${ref}"><span><b>${esc(n)}</b><div class="sub">Open this duty</div></span><span></span>${CHEV}</button>`
+        : t==='go' ? `<button class="drill" data-closego="${ref}"><span><b>${esc(n)}</b><div class="sub">Open</div></span><span></span>${CHEV}</button>` : `<div class="item"><div class="body"><div class="nm">${esc(n)}</div></div></div>`).join('')}</div>
+      <h2 class="sh">Spent at</h2><div class="card">${usedBy.map(s=>`<button class="drill" data-closeshop="${s.id}"><span><b>${esc(s.n)}</b><div class="sub">${esc(s.w)}</div></span><span></span>${CHEV}</button>`).join('')}</div>
+      <button class="wide" data-close>Done</button></div>`;
+  } else if (kind.startsWith('send:')){
+    const i = +kind.split(':')[1];
+    L.innerHTML = `<div class="scrim" data-close></div><div class="sheet${na}" role="dialog" aria-label="Send retainer"><div class="grab"></div><h3>Send ${esc(S.timers.retainers[i].n)}</h3><p class="help">Pick the venture you started in game.</p>
+      <button class="opt" data-vent="${i}|Exploration|18"><span><b>Exploration</b><br><span class="sub">Field, Highland, Woodland or Waterside</span></span><span class="cd">18h</span></button>
+      <button class="opt" data-vent="${i}|Quick Exploration|1"><span><b>Quick Exploration</b></span><span class="cd">1h</span></button>
+      <div class="opt" style="cursor:default;display:block"><b>Fetch a material</b><span class="cd" style="float:right">1h</span>
+        <div class="field" style="margin-top:8px"><select id="vtype" aria-label="Venture type"><option>Mining</option><option>Botany</option><option>Fishing</option><option>Hunting</option></select>
+        <input id="vitem" placeholder="Item, e.g. Cobalt Ore" style="flex:1;min-width:0;padding:5px 7px;border:1px solid var(--line);border-radius:7px;background:var(--surface)" aria-label="Item"></div>
+        <button class="advance" style="margin-top:8px;display:block" data-ventitem="${i}">Start 1h timer</button></div></div>`;
+  } else if (kind.startsWith('target:')){
+    const id = kind.slice(7), j = id.slice(4), cur = jobLv(j), nmj = JN[j] || JOBS.flatMap(x=>x[1]).find(x=>x[0]===j)[1];
+    if (S.tmpT == null) S.tmpT = Math.min(100, Math.floor(cur/10)*10 + 10);
+    L.innerHTML = `<div class="scrim" data-close></div><div class="sheet${na}" role="dialog" aria-label="Set a target"><div class="grab"></div><h3>Pin ${esc(nmj)}</h3><p class="help">Now Lv ${cur}. Pick the level you're aiming for.</p>
+      <div style="display:flex;align-items:center;gap:12px"><span class="stepper"><button class="sbtn" data-tt="-1" aria-label="Lower target">−</button><span class="sval" style="font-size:1.4rem">${S.tmpT}</span><button class="sbtn" data-tt="1" aria-label="Raise target">+</button></span><span class="sub">target level</span></div>
+      <div class="chips">${[50,60,70,80,90,100].filter(v=>v>cur).map(v=>`<button class="chip" data-ttset="${v}" aria-pressed="${S.tmpT===v}">Lv ${v}</button>`).join('')}</div>
+      <button class="wide" data-pintarget="${id}">Pin with target Lv ${S.tmpT}</button></div>`;
+  } else {
+    const PALS = [['single','Single accent','One colour for every activity (current look)'],['outline','Coloured outlines','Each activity tile gets its own border colour'],['tint','Tinted tiles','Each tile is lightly washed in its colour'],['ring','Coloured rings','Only the progress ring takes the colour']];
+    const SW = '<span class="sw4">' + ['jobs','duties','gear','coll'].map(k=>`<i style="background:var(--c-${k})"></i>`).join('') + '</span>';
+    L.innerHTML = `<div class="scrim" data-close></div><div class="sheet${na}" role="dialog" aria-label="Settings"><div class="grab"></div><h3>Settings</h3>
+      <div style="padding:8px 0"><b>Spoilers: what to conceal</b>
+        ${[['spoiler','Names','Locked duties, jobs, projects and future story steps show as ???. Sections you haven\'t reached show as ?????.'],['labels','Expansion and patch labels','No expansion tag or patch number on anything you haven\'t unlocked, and no "steps ahead" counts.'],['strict','Future content','Only the next locked item in each group appears, plus what you can unlock now. A series stays hidden until the one before it is done.']]
+          .map(([k,l,s])=>`<div class="toggle"><span><b>${l}</b><br><span class="sub">${s}</span></span><button class="sw" role="switch" aria-checked="${S[k]}" data-spk="${k}" aria-label="Conceal ${l}"></button></div>`).join('')}
+        <div class="btnrow"><button class="ghost" data-spall="1">Conceal everything</button><button class="ghost" data-spall="0">Show everything</button></div></div>
+      <div style="padding:8px 0;border-top:1px solid var(--line)"><b>Activity colours</b>${PALS.map(([k,l,s])=>`<button class="pal" data-pal="${k}" aria-pressed="${S.palette===k}">${k==='single'?'<span class="sw4"><i style="background:var(--accent)"></i><i style="background:var(--accent)"></i><i style="background:var(--accent)"></i><i style="background:var(--accent)"></i></span>':SW}<span><b>${l}</b><br><span class="sub">${s}</span></span></button>`).join('')}
+        <p class="sub" style="margin-top:6px">With colours on, unlock types on the Quests tab match their activity's colour.</p></div>
+      <button class="wide" data-close>Done</button></div>`;
+  }
+  if (keep){ const s = L.querySelector('.sheet'); if (s) s.scrollTop = top; }
+}
+let tt, undoFn = null;
+function toast(msg, undo){ clearTimeout(tt); let t = document.querySelector('.toast'); if (!t){ t = document.createElement('div'); t.className='toast'; t.setAttribute('role','status'); document.body.appendChild(t); }
+  undoFn = undo || null; t.innerHTML = esc(msg) + (undo ? '<button class="undo" data-undo>Undo</button>' : ''); t.hidden = false; tt = setTimeout(()=>{ t.hidden = true; undoFn = null; }, undo ? 5000 : 2400); }
+const closeSheet = () => { document.getElementById('layer').innerHTML = ''; S.sheetOpen = null; if (S.onboardPicked){ S.onboard = false; S.onboardPicked = false; render(); } };
+function setMsq(i){ if (S.onboard) S.onboardPicked = true;
+  const before = new Set(DUTIES.filter(d=>dStatus(d)!=='locked').map(d=>d.id)); const old = S.msq; S.msq = i;
+  const opened = DUTIES.filter(d=>dStatus(d)!=='locked' && !before.has(d.id)).map(d=>d.id);
+  S.newIds = i>old ? opened : []; closeSheet();
+  toast(i>old ? (opened.length?`${opened.length} new duties open · ${availableQuests().length} unlock quests available`:'Story updated') : 'Story moved back');
+  render();
+}
+function checkTargets(){
+  for (const id of [...S.pins]){ const t = S.targets[id]; if (!t) continue;
+    const doneNow = t.cells ? t.cells.every(k=>C.has(k)) : jobLv(id.slice(4)) >= t.to;
+    if (doneNow){ S.pins = S.pins.filter(p=>p!==id); toast('Goal reached, removed from Goals', () => { S.pins.unshift(id); }); } }
+}
+function unpinIfDone(id){ const d = DUTIES.find(x=>x.id===id); if (d && dStatus(d)==='done' && S.pins.includes(id)){ S.pins = S.pins.filter(p=>p!==id); toast(`${d.n} complete, removed from Goals`); } }
+
+/* ================= events ================= */
+/* press and hold a row to pin it (the pin icon only shows once pinned) */
+let holdT = null, holdEl = null, holdFired = false;
+const holdRow = t => { let el = t.closest && t.closest('.item,.jobrow,.drill,h2.sh,.ownrow,.card > div'); while (el && el !== document.body){ const ps = el.querySelectorAll('.pinbtn'); if (ps.length===1) return [el, ps[0]]; if (ps.length>1) return null; el = el.parentElement; } return null; };
+const holdEnd = () => { clearTimeout(holdT); holdT = null; if (holdEl) holdEl.classList.remove('holding'); holdEl = null; };
+document.addEventListener('pointerdown', e => { holdFired = false; const h = holdRow(e.target); if (!h || e.target.closest('.sheet')) return; const [el, pb] = h; holdEl = el; el.classList.add('holding');
+  holdT = setTimeout(() => { holdFired = true; holdEnd(); if (navigator.vibrate) navigator.vibrate(15); pb.click(); }, 550); });
+['pointerup','pointercancel','pointerleave','scroll'].forEach(ev => document.addEventListener(ev, holdEnd, true));
+document.addEventListener('pointermove', e => { if (holdT && (Math.abs(e.movementX)+Math.abs(e.movementY) > 6)) holdEnd(); });
+document.addEventListener('contextmenu', e => { if (holdRow(e.target)) e.preventDefault(); });
+document.addEventListener('click', e => { if (holdFired && e.isTrusted){ holdFired = false; e.stopPropagation(); e.preventDefault(); } }, true);
+document.addEventListener('click', e => {
+  const sv = e.target.closest('.stepper .sval');   // tap a number to type it instead of tapping + many times
+  if (sv){ const b = sv.parentElement.querySelector('.sbtn:last-child'), d = b && b.dataset; if (!d) return;
+    const cur = +sv.textContent || 0, v = window.prompt('Enter a value', cur); if (v == null || v.trim()==='' || isNaN(+v)) return; const n = Math.round(+v);
+    if (d.n){ const [k,,mn,mx] = d.n.split('|'); N[k] = Math.max(+mn, Math.min(+mx, n)); }
+    else if (d.lv){ const j = d.lv.split(':')[0]; JOBS.forEach(([,js])=>js.forEach(x=>{ if (x[0]===j) x[2] = Math.max(0,Math.min(100,n)); })); checkTargets(); }
+    else if (d.clv){ const j = d.clv.split(':')[0]; CLV[j] = Math.max(0,Math.min(100,n)); checkTargets(); }
+    else return;
+    render(); return; }
+  const sb = e.target.closest('.sub'); if (sb && !e.target.closest('button') && (sb.scrollHeight > sb.clientHeight + 1 || sb.classList.contains('full'))){ sb.classList.toggle('full'); return; }
+  const t = e.target.closest('button,[data-close]'); if (!t) return; const ds = t.dataset;
+  if ('close' in ds){ closeSheet(); return; }
+  if ('undo' in ds){ if (undoFn) undoFn(); undoFn = null; const t = document.querySelector('.toast'); if (t) t.hidden = true; render(); return; }
+  if (ds.duty){ sheet('duty:'+ds.duty); return; }
+  if (ds.grp){ S.open.has(ds.grp) ? S.open.delete(ds.grp) : S.open.add(ds.grp); render(); return; }
+  if (ds.region){ S.reg = JSON.parse(ds.region); S.view = 'region'; render(); scrollTo({top:0}); return; }
+  if (ds.markall){ const prev = S.regKeys.filter(k=>C.has(k)); const on = ds.markall==='1'; S.regKeys.forEach(k => on ? C.add(k) : C.delete(k));
+    toast(on ? 'Marked all done' : 'Cleared all', () => { S.regKeys.forEach(k=>C.delete(k)); prev.forEach(k=>C.add(k)); }); render(); return; }
+  if (ds.qundo){ Q[ds.qundo].done = false; toast(`${Q[ds.qundo].n} marked not done`); render(); return; }
+  if (ds.reset){ const d = DUTIES.find(x=>x.id===ds.reset); const before = {done:d.done, td:d.td&&[...d.td]}; d.done = false; if (d.td) d.td = d.td.map(()=>0);
+    toast(`${d.n} reset`, () => { d.done = before.done; if (before.td) d.td = before.td; }); render(); return; }
+  if (ds.relock){ const d = DUTIES.find(x=>x.id===ds.relock); const before = {done:d.done, td:d.td&&[...d.td]}; d.done = false; if (d.td) d.td = d.td.map(()=>0); Q[d.q].done = false; closeSheet();
+    toast(`${d.n} re-locked`, () => { d.done = before.done; if (before.td) d.td = before.td; Q[d.q].done = true; }); render(); return; }
+  if (ds.goview && ds.goview.startsWith('log:')){ const [,seg,x] = ds.goview.split(':'); S.view = 'craft'; S.craftSeg = seg; S.craftX = x; render(); scrollTo({top:0}); return; }
+  if (ds.goview){ const mt = META[ds.goview]; if (mt.reg) S.reg = mt.reg; S.view = mt.view; render(); scrollTo({top:0}); return; }
+  if (ds.n){ const [k,d,mn,mx] = ds.n.split('|'); N[k] = Math.max(+mn, Math.min(+mx, (N[k]||0) + +d));
+    if (k.startsWith('sfn-') && +d > 0 && N[k] >= +mx){ const rk = 'sf-'+k.slice(4); if ((LAD[rk]||0) < 3){ const prev = [LAD[rk], N[k]-1]; LAD[rk] = (LAD[rk]||0) + 1; N[k] = 0; toast(`Ranked up to rank ${LAD[rk]}`, () => { LAD[rk] = prev[0]; N[k] = prev[1]; }); } }
+    render(); return; }
+  if (ds.c){ C.has(ds.c) ? C.delete(ds.c) : C.add(ds.c); checkTargets(); render(); return; }
+  if (ds.l){ const [k,i] = ds.l.split('|'); LAD[k] = LAD[k]===+i ? +i-1 : +i; render(); return; }
+  if (ds.cx){ S.craftX = ds.cx; if (S.focus!=='all') S.focus = ds.cx; render(); return; }
+  if (ds.cseg){ S.craftSeg = ds.cseg; render(); return; }
+  if (ds.opencoll){ S.view = 'coll'; S.collCat = ds.opencoll; S.q=''; S.ownFilter='miss'; render(); scrollTo({top:0}); return; }
+  if ('coll2' in ds){ S.view = 'coll'; S.collCat = null; render(); scrollTo({top:0}); return; }
+  if (ds.msqstep){ const i = Math.max(0, Math.min(MSQ.length-1, S.msq + +ds.msqstep)); const was = S.msq; setMsq(i);
+    if (+ds.msqstep > 0) toast(`Finished ${MSQ[was+1].n}`, () => setMsq(was)); return; }
+  if (ds.zone){ S.zone = ds.zone; S.view = 'zone'; render(); scrollTo({top:0}); return; }
+  if (ds.showlocked){ S.showLocked.has(ds.showlocked) ? S.showLocked.delete(ds.showlocked) : S.showLocked.add(ds.showlocked); render(); return; }
+  if (ds.msqblk){ S.msqOpen.has(ds.msqblk) ? S.msqOpen.delete(ds.msqblk) : S.msqOpen.add(ds.msqblk); sheet('msq', true); return; }
+  if (ds.msqpatch){ S.msqPatch = ds.msqpatch; S.msqQ = ''; sheet('msq', true); return; }
+  if (ds.sheet){ if (ds.sheet==='msq'){ S.msqPatch = null; S.msqQ = ''; } sheet(ds.sheet); return; }
+  if (ds.msq){ setMsq(+ds.msq); return; }
+
+  if (ds.tab){ S.tab = ds.tab; S.view = ds.tab; S.collCat = null; S.hub = null; render(); scrollTo({top:0}); return; }
+  if ('back' in ds){ if (S.view==='coll' && S.collCat){ S.collCat = null; } else if (S.view==='region'){ S.view = S.reg.parent; } else if (S.view==='ljob'){ S.view = 'jobs'; } else if (S.view==='shop'){ S.view = S.zone && S.prevZone ? 'zone' : 'shops'; S.prevZone = false; } else if (S.view==='zone'){ S.view = 'zones'; } else if (S.tab==='activities' && S.hub && S.view!=='hub' && hubOf(S.view)===S.hub && !HUBS.find(x=>x.k===S.hub).direct){ S.view = 'hub'; } else { S.view = S.tab; S.hub = null; } render(); scrollTo({top:0}); return; }
+  if (ds.recent){ const r = S.recent[+ds.recent]; Object.assign(S, {view:r.view, collCat:r.collCat, zone:r.zone, shop:r.shop, hub:hubOf(r.view)||r.hub}); if (r.view==='coll') { S.q=''; } render(); scrollTo({top:0}); return; }
+  if (ds.gqall){ S.gqAll.has(ds.gqall) ? S.gqAll.delete(ds.gqall) : S.gqAll.add(ds.gqall); render(); return; }
+  if (ds.hub){ const H = HUBS.find(x=>x.k===ds.hub); S.hub = H.k; S.view = H.direct || 'hub'; render(); scrollTo({top:0}); return; }
+  if (ds.mvhub){ const [k,d] = ds.mvhub.split('|'); const o = S.hubOrder || HUBS.map(H=>H.k); const i = o.indexOf(k), j = i + +d; if (j<0||j>=o.length) return; [o[i],o[j]] = [o[j],o[i]]; S.hubOrder = o; render(); return; }
+  if (ds.hidehub){ S.hiddenHubs.has(ds.hidehub) ? S.hiddenHubs.delete(ds.hidehub) : S.hiddenHubs.add(ds.hidehub); render(); return; }
+  if ('resethubs' in ds){ S.hubOrder = null; S.hiddenHubs.clear(); render(); return; }
+  if (ds.go){ if (S.tab==='activities' && hubOf(ds.go)) S.hub = hubOf(ds.go); S.view = ds.go; render(); scrollTo({top:0}); return; }
+  if (ds.focus){ S.focus = ds.focus; render(); return; }
+  if (ds.seg){ S.seg = ds.seg; render(); return; }
+  if (ds.pin){ const id = ds.pin, i = S.pins.indexOf(id);
+    if (i>=0){ S.pins.splice(i,1); delete S.targets[id]; toast('Removed from Goals'); render(); return; }
+    if (id.startsWith('job:')){ S.tmpT = null; sheet('target:'+id); return; }
+    if (id.startsWith('log:')){ const [,seg,x] = id.split(':'); S.pick = {id, set:new Set()}; S.view = 'craft'; S.craftSeg = seg; S.craftX = x; render(); return; }
+    S.pins.unshift(id); toast('Added to Goals'); render(); return; }
+  if (ds.tt){ S.tmpT = Math.max(1, Math.min(100, S.tmpT + +ds.tt)); sheet(S.sheetOpen, true); return; }
+  if (ds.ttset){ S.tmpT = +ds.ttset; sheet(S.sheetOpen, true); return; }
+  if (ds.pintarget){ const id = ds.pintarget, j = id.slice(4); S.targets[id] = {from:jobLv(j), to:S.tmpT}; S.pins.unshift(id); closeSheet(); toast(`Pinned · target Lv ${S.tmpT}`); S.tmpT = null; render(); return; }
+  if (ds.tcell){ const s = S.pick.set; s.has(ds.tcell) ? s.delete(ds.tcell) : s.add(ds.tcell); render(); return; }
+  if ('pickall' in ds){ const [,seg,x] = S.pick.id.split(':'); const br = BR[x]; const n = br.length + (seg==='recipes'||seg==='gather'?1:0);
+    const jobs = seg==='gather' ? ['MIN','BTN'] : ['CRP','BSM','ARM','GSM','LTW','WVR','ALC','CUL'];
+    jobs.forEach(j => { for (let i=0;i<n;i++){ const key = `${seg}:${x}:${j}:${i}`, start = i<br.length ? br[i] : CAP[x]; if (C.has(key) || start > CLV[j]) continue; S.pick.set.add(key); break; } });
+    render(); return; }
+  if ('pickcancel' in ds){ S.pick = null; render(); return; }
+  if ('picksave' in ds){ if (!S.pick.set.size){ toast('Pick at least one bracket'); return; } S.targets[S.pick.id] = {cells:[...S.pick.set]}; S.pins.unshift(S.pick.id); S.pick = null; toast('Goal pinned'); render(); return; }
+  if (ds.jq){ const [j,l] = ds.jq.split('|'); const prev = JQD[j] ?? 0; JQD[j] = +l; toast(`${j} Lv ${l} job quest done`, () => { JQD[j] = prev; }); render(); return; }
+  if (ds.rq){ const [r,l] = ds.rq.split('|'); const prev = RQD[r] || 0; RQD[r] = +l; toast(`${r} role quest done`, () => { RQD[r] = prev; }); render(); return; }
+  if (ds.spk){ S[ds.spk] = !S[ds.spk]; render(); return; }
+  if (ds.spall){ const v = ds.spall==='1'; S.spoiler = S.labels = S.strict = v; render(); return; }
+  if (ds.shop && S.view==='zone') S.prevZone = true;
+  if (ds.shop){ S.shop = ds.shop; S.view = 'shop'; render(); scrollTo({top:0}); return; }
+  if (ds.closeshop){ closeSheet(); S.shop = ds.closeshop; S.view = 'shop'; render(); scrollTo({top:0}); return; }
+  if (ds.closego){ closeSheet(); S.view = ds.closego; render(); scrollTo({top:0}); return; }
+  if (ds.comp){ sheet('comp:'+ds.comp); return; }
+  if ('onlymiss' in ds){ S.onlyMissing = !S.onlyMissing; render(); return; }
+  if (ds.ljob){ S.ljob = ds.ljob; S.view = 'ljob'; render(); scrollTo({top:0}); return; }
+  if ('addpast' in ds){ const v = document.getElementById('newpast').value.trim(); if (v){ S.past.push(v); render(); } return; }
+  if (ds.delpast){ const i = +ds.delpast, n = S.past.splice(i,1)[0]; toast(`${n} removed`, () => S.past.splice(i,0,n)); render(); return; }
+  if ('addrem' in ds){ S.addingRem = !S.addingRem; render(); return; }
+  if ('saverem' in ds){ const g = id => document.getElementById(id); const n = g('rn').value.trim(); if (!n){ toast('Give the reminder a name'); return; }
+    const c = {n, time:g('rt').value||'20:00', rep:g('rr').value, dow:+g('rd').value, date:g('rdt').value, lead:+g('rl').value, alarm:true};
+    if (c.rep==='once' && !c.date){ toast('Pick a date for a one-time reminder'); return; }
+    S.custom.push(c); S.addingRem = false; toast(`Reminder added: ${n}`); render(); return; }
+  if (ds.remalarm){ const c = S.custom[+ds.remalarm]; c.alarm = !c.alarm; toast(`${c.n} alarm ${c.alarm?'on':'off'}`); render(); return; }
+  if (ds.delrem){ const i = +ds.delrem, c = S.custom.splice(i,1)[0]; toast(`${c.n} removed`, () => S.custom.splice(i,0,c)); render(); return; }
+  if ('reorder' in ds){ S.reorder = !S.reorder; render(); return; }
+  if (ds.mv){ const [k,d] = ds.mv.split('|'); const o = S.catOrder || CATS.map(c=>c.k); const i = o.indexOf(k), j = i + +d; if (j<0||j>=o.length) return; [o[i],o[j]] = [o[j],o[i]]; S.catOrder = o; render(); return; }
+  if ('resetorder' in ds){ S.catOrder = null; S.hiddenCats.clear(); render(); return; }
+  if (ds.hidecat){ S.hiddenCats.has(ds.hidecat) ? S.hiddenCats.delete(ds.hidecat) : S.hiddenCats.add(ds.hidecat); render(); return; }
+  if (ds.sec){ S.closed.has(ds.sec) ? S.closed.delete(ds.sec) : S.closed.add(ds.sec); render(); return; }
+  if (ds.spk==='foldAll'){ S.foldAll = !S.foldAll; S.closed.clear(); render(); return; }
+  if (ds.set){ const [k,v] = ds.set.split('|'); S[k] = v==='true' ? true : v==='false' ? false : v; render(); return; }
+  if (ds.qk){ S.quiet[ds.qk] = !S.quiet[ds.qk]; render(); return; }
+  if (ds.char){ switchChar(+ds.char); toast(`Switched to ${S.chars[S.char]}`); render(); return; }
+  if ('addchar' in ds){ const nm = (window.prompt('Name for the new character', 'Alt ' + S.chars.length) || '').trim(); if (!nm) return; S.chars.push(nm); switchChar(S.chars.length-1); toast(`Added ${nm}, starting fresh`); render(); return; }
+  if (ds.backup){ ds.backup==='export' ? exportBackup() : importBackup(); return; }
+  if ('msqpick' in ds){ sheet('msq'); return; }
+  if ('onboarddone' in ds){ S.onboard = false; render(); return; }
+  if ('resetall' in ds){ if (!S.resetArm){ S.resetArm = true; toast('Tap Reset again to erase this character\'s progress'); setTimeout(()=>{ S.resetArm = false; }, 4000); return; }
+    S.resetArm = false; const before = JSON.stringify(progressSnap()); applyProgress(null); S.onboard = true; GIDX = null; render(); toast(`${S.chars[S.char]} reset`, () => { applyProgress(JSON.parse(before)); S.onboard = false; }); return; }
+  if (ds.retact){ const r = S.timers.retainers[+ds.retact]; r.active = !r.active; if (!r.active){ r.end = null; r.task = null; } render(); return; }
+  if (ds.delretok){ const i = +ds.delretok, r = S.timers.retainers.splice(i,1)[0]; S.armRet = null; toast(`${r.n} removed`, () => { S.timers.retainers.splice(i,0,r); }); render(); return; }
+  if ('delretno' in ds){ S.armRet = null; render(); return; }
+  if ('addret' in ds){ S.timers.retainers.push({n:'Retainer '+(S.timers.retainers.length+1), end:null, task:null, active:true, alarm:true}); render(); return; }
+  if (ds.retalarm){ const r = S.timers.retainers[+ds.retalarm]; r.alarm = !r.alarm; toast(`${r.n} alarm ${r.alarm?'on':'off'}`); render(); return; }
+  if ('sqalarm' in ds){ S.timers.squadron.alarm = !S.timers.squadron.alarm; toast(`Squadron alarm ${S.timers.squadron.alarm?'on':'off'}`); render(); return; }
+  if (ds.delret){ S.armRet = +ds.delret; render(); return; }
+  if (ds.pal){ S.palette = ds.pal; render(); return; }
+  if (ds.clv){ const [j,d] = ds.clv.split(':'); CLV[j] = Math.max(1, Math.min(100, CLV[j] + +d)); checkTargets(); render(); return; }
+  if (ds.qdone){ const id = ds.qdone; Q[id].done = true; Q[id].at = 1e6 + QSEQ++; toast(`${Q[id].n} done`, () => { Q[id].done = false; }); render(); return; }
+  if (ds.done){ const d = DUTIES.find(x=>x.id===ds.done); d.done = !d.done; if (d.done) toast(`${d.n} cleared`, () => { d.done = false; }); unpinIfDone(d.id); render(); return; }
+  if (ds.turn){ const [id,i] = ds.turn.split(':'); const d = DUTIES.find(x=>x.id===id); d.td[+i] = d.td[+i]?0:1; unpinIfDone(id); render(); return; }
+  if (ds.rank){ const [id,r] = ds.rank.split(':'); const x = DELIV.find(y=>y.id===id); x.r = x.r===+r ? +r-1 : +r; if (x.r===5 && S.pins.includes(id)){ S.pins = S.pins.filter(p=>p!==id); toast(`${x.n} maxed, removed from Goals`); } render(); return; }
+  if (ds.stage){ const [j,s] = ds.stage.split(':'); RS[j] = RS[j]===+s ? +s-1 : +s; render(); return; }
+  if (ds.adv){ RS[ds.adv] = (RS[ds.adv]||0)+1; if (RS[ds.adv]===8){ S.pins = S.pins.filter(p=>p!=='relic:'+ds.adv); toast(`Zodiac ${ds.adv} complete, removed from Goals`); } render(); return; }
+  if (ds.lv){ const [j,d] = ds.lv.split(':'); JOBS.forEach(([,js])=>js.forEach(x=>{ if (x[0]===j) x[2] = Math.max(1,Math.min(100,x[2]+ +d)); })); checkTargets(); render(); return; }
+  if (ds.coll){ if (COLLDATA[ds.coll]){ S.collCat = ds.coll; S.q=''; S.ownFilter='miss'; render(); scrollTo({top:0}); } else toast('Not built yet'); return; }
+  if (ds.ownf){ S.ownFilter = ds.ownf; render(); return; }
+  if (ds.own){ OWN.has(ds.own) ? OWN.delete(ds.own) : OWN.add(ds.own); render(); return; }
+  if (ds.dig){ S.timers[ds.dig].on = !S.timers[ds.dig].on; render(); return; }
+  if (ds.digi){ const [k,i] = ds.digi.split('|'); const a = S.timers[k].items; const p = a.indexOf(i); p>=0 ? a.splice(p,1) : a.push(i); render(); return; }
+  if ('gc' in ds){ S.timers.gc = !S.timers.gc; render(); return; }
+  if ('leve' in ds){ S.timers.leves.on = !S.timers.leves.on; render(); return; }
+  if (ds.send){ sheet('send:'+ds.send); return; }
+  if (ds.vent){ const [i,n,h] = ds.vent.split('|'); Object.assign(S.timers.retainers[+i], {task:n, end:Date.now()+(+h)*3600e3}); closeSheet(); toast(`${S.timers.retainers[+i].n} sent · back in ${h}h`); render(); return; }
+  if (ds.ventitem){ const i = +ds.ventitem; const item = document.getElementById('vitem').value.trim() || 'material'; const ty = document.getElementById('vtype').value;
+    Object.assign(S.timers.retainers[i], {task:`${ty}: ${item}`, end:Date.now()+3600e3}); closeSheet(); toast(`${S.timers.retainers[i].n} sent · back in 1h`); render(); return; }
+  if (ds.collect){ Object.assign(S.timers.retainers[+ds.collect], {task:null,end:null}); render(); return; }
+  if ('squad' in ds){ S.timers.squadron.end = Date.now()+18*3600e3; toast('Squadron sent · back in 18h'); render(); return; }
+});
+document.addEventListener('change', e => {
+  const d = e.target.dataset;
+  if (d.at){ S.timers[d.at].at = e.target.value; return; }
+  if (d.have){ HAVE[d.have] = Math.max(0, +e.target.value||0); render(); return; }
+  if (d.qt){ S.quiet[d.qt] = e.target.value; return; }
+  if (d.retname){ S.timers.retainers[+d.retname].n = e.target.value.trim() || 'Retainer'; return; }
+  if ('lvh' in d){ S.timers.leves.have = Math.max(0,Math.min(100,+e.target.value||0)); render(); return; }
+  if ('lvw' in d){ S.timers.leves.want = Math.max(0,Math.min(100,+e.target.value||0)); render(); return; }
+});
+document.addEventListener('input', e => {
+  if (e.target.dataset.note !== undefined){ S.notes[e.target.dataset.note] = e.target.value; return; }
+  if (e.target.id==='msqq'){ S.msqQ = e.target.value; const pos = e.target.selectionStart; sheet('msq', true); const q = document.getElementById('msqq'); if (q){ q.focus(); q.setSelectionRange(pos,pos); } return; }
+  if (e.target.id==='gq'){ S.gq = e.target.value; S.gqAll = new Set(); const pos = e.target.selectionStart; render(); const q = document.getElementById('gq'); if (q){ q.focus(); q.setSelectionRange(pos,pos); } return; }
+  if (e.target.id==='q'){ S.q = e.target.value; const pos = e.target.selectionStart; render(); const q = document.getElementById('q'); if (q){ q.focus(); q.setSelectionRange(pos,pos); } }
+});
+document.addEventListener('keydown', e => { if (e.key==='Escape') closeSheet(); });
+/* ================= saving ================= */
+const STORE = 'completionist-log.v1';
+const N_KEYS = Object.keys(N);
+const SKEYS = ['pins','notes','targets','custom','timers','past','recent','focus','lastSeenId'];
+const GKEYS = ['theme','spoiler','labels','strict','h12','start','compact','quiet','hubOrder','catOrder','palette','foldAll'];
+const toArr = v => v instanceof Set ? {__set:[...v]} : v, fromArr = v => v && v.__set ? new Set(v.__set) : v;
+const clearObj = o => Object.keys(o).forEach(k => delete o[k]);
+function progressSnap(){
+  return { msq: MSQ[S.msq].id, own:[...OWN], c:[...C], n:{...N}, lad:{...LAD}, rs:{...RS}, clv:{...CLV}, jqd:{...JQD}, rqd:{...RQD}, have:{...HAVE},
+    duties: Object.fromEntries(DUTIES.filter(d=>d.done || (d.td||[]).some(Boolean)).map(d=>[d.id, d.turns ? {td:d.td} : 1])),
+    q: Object.fromEntries(Object.entries(Q).filter(([k,q])=>q.done && /^q\d+$/.test(k)).map(([k,q])=>[k, q.at||1])),
+    jobs: Object.fromEntries(JOBS.flatMap(([,js])=>js.map(j=>[j[0], j[2]]))),
+    deliv: Object.fromEntries(DELIV.filter(c=>c.r).map(c=>[c.id, c.r])),
+    s: Object.fromEntries(SKEYS.map(k=>[k, toArr(k==='lastSeenId' ? (MSQ[S.lastSeen]||MSQ[S.msq]).id : S[k])])) };
+}
+function applyProgress(p){
+  p = p || {};
+  const i = mIdx(p.msq); S.msq = i >= 0 ? i : 0;
+  OWN.clear(); (p.own||[]).forEach(x=>OWN.add(x)); C.clear(); (p.c||[]).forEach(x=>C.add(x));
+  [[N,p.n],[LAD,p.lad],[RS,p.rs],[CLV,p.clv],[JQD,p.jqd],[RQD,p.rqd],[HAVE,p.have]].forEach(([o,v]) => { clearObj(o); Object.assign(o, v||{}); });
+  N_KEYS.concat(['af50','af60','af70','isle']).forEach(k => { if (N[k] == null) N[k] = 0; });
+  if (!p.clv){ ['CRP','BSM','ARM','GSM','LTW','WVR','ALC','CUL','MIN','BTN','FSH'].forEach(j => CLV[j] = 0); }
+  DUTIES.forEach(d => { const v = (p.duties||{})[d.id]; d.done = !!v && !d.turns; if (d.turns) d.td = d.turns.map((_,k)=>!!(v && v.td && v.td[k])); });
+  Object.entries(Q).forEach(([k,q]) => { if (!/^q\d+$/.test(k)) return; const at = (p.q||{})[k]; q.done = !!at; q.at = at || undefined; });
+  QSEQ = Math.max(1, ...Object.values(p.q||{}).map(Number).filter(Number.isFinite)) + 1;
+  JOBS.forEach(([,js]) => js.forEach(j => { j[2] = (p.jobs||{})[j[0]] ?? 0; }));
+  DELIV.forEach(c => c.r = (p.deliv||{})[c.id] || 0);
+  const s = p.s || {};
+  S.pins = s.pins || []; S.notes = s.notes || {}; S.targets = s.targets || {}; S.custom = s.custom || []; S.recent = s.recent || [];
+  S.past = s.past || null; S.focus = s.focus || 'all';
+  S.timers = s.timers || freshTimers();
+  const ls = mIdx(s.lastSeenId); S.lastSeen = ls >= 0 ? ls : S.msq; S.newIds = [];
+}
+function freshTimers(){ return {
+  dailyDigest:{on:true, at:'10:00', items:['Duty roulettes','Allied society quests','Mini Cactpot']},
+  weeklyDigest:{on:true, at:'10:00', items:['Custom Deliveries','Wondrous Tails']},
+  gc:true, leves:{have:100, want:100, on:false},
+  retainers:[{n:'Retainer 1',end:null,task:null,active:true,alarm:true},{n:'Retainer 2',end:null,task:null,active:true,alarm:true}],
+  squadron:{end:null, alarm:true} }; }
+let STATE = null, saveT = null;
+function readStore(){ try { return JSON.parse(localStorage.getItem(STORE)); } catch(e){ return null; } }
+function writeStore(){
+  if (!STATE) return;
+  STATE.chars = S.chars; STATE.active = S.char; STATE.progress[S.char] = progressSnap();
+  STATE.settings = Object.fromEntries(GKEYS.map(k=>[k, toArr(S[k])])); STATE.settings.hiddenHubs = [...S.hiddenHubs]; STATE.settings.hiddenCats = [...S.hiddenCats];
+  STATE.onboard = !!S.onboard; STATE.savedAt = S.savedAt = Date.now();
+  try { localStorage.setItem(STORE, JSON.stringify(STATE)); } catch(e){ toast('Couldn\'t save: phone storage is full'); }
+}
+function scheduleSave(){ clearTimeout(saveT); saveT = setTimeout(writeStore, 400); }
+document.addEventListener('visibilitychange', () => { if (document.visibilityState==='hidden'){ clearTimeout(saveT); writeStore(); } });
+function loadState(st){
+  STATE = st && st.v===1 ? st : {v:1, chars:['Main'], active:0, progress:{}, settings:{}, onboard:true};
+  S.chars = STATE.chars; S.char = Math.min(STATE.active||0, S.chars.length-1);
+  GKEYS.forEach(k => { if (STATE.settings[k] !== undefined) S[k] = fromArr(STATE.settings[k]); });
+  S.hiddenHubs = new Set(STATE.settings.hiddenHubs||[]); S.hiddenCats = new Set(STATE.settings.hiddenCats||[]);
+  S.onboard = !!STATE.onboard; S.savedAt = STATE.savedAt || null;
+  applyProgress(STATE.progress[S.char]);
+  GIDX = null;
+}
+function switchChar(i){ writeStore(); S.char = i; applyProgress(STATE.progress[i]); writeStore(); }
+function exportBackup(){
+  writeStore();
+  const blob = new Blob([JSON.stringify({app:'completionist-log', ...STATE}, null, 1)], {type:'application/json'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `completionist-log-backup-${new Date().toISOString().slice(0,10)}.json`;
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  toast('Backup saved to your downloads');
+}
+function importBackup(){
+  const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'application/json,.json';
+  inp.onchange = async () => { const f = inp.files[0]; if (!f) return;
+    try { const st = JSON.parse(await f.text()); if (st.app!=='completionist-log' || st.v!==1) throw new Error('not a backup');
+      const before = JSON.stringify(STATE); loadState(st); S.onboard = false; writeStore(); S.view = S.tab = 'home'; render();
+      toast('Backup restored', () => { loadState(JSON.parse(before)); writeStore(); render(); });
+    } catch(e){ toast('That file isn\'t a Completionist Log backup'); } };
+  inp.click();
+}
+if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(()=>{});
+loadState(readStore());
+if (S.start && S.start!=='home'){ S.tab = S.view = S.start; }
+setInterval(() => { if (S.view==='timers' && !S.addingRem && !document.activeElement?.matches('input,select')) render(); }, 30000);
+render();
+})();
+</script>
+<script>
+// offline + install: register the service worker; when a new version is ready, offer to reload
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').then(reg => {
+    reg.addEventListener('updatefound', () => { const w = reg.installing; if (!w) return;
+      w.addEventListener('statechange', () => { if (w.state === 'installed' && navigator.serviceWorker.controller) {
+        const b = document.createElement('button'); b.className = 'updatebar'; b.textContent = 'A new version is ready · tap to update';
+        b.onclick = () => { w.postMessage('skip'); }; document.body.appendChild(b); } }); });
+  }).catch(() => {});
+  let reloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if (reloaded) return; reloaded = true; location.reload(); });
+}
+</script>
+</body>
+</html>

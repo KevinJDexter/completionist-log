@@ -26,6 +26,10 @@ public sealed unsafe class Plugin : IDalamudPlugin
     [PluginService] internal static IDataManager DataManager { get; private set; } = null!;
     [PluginService] internal static IChatGui Chat { get; private set; } = null!;
     [PluginService] internal static IPluginLog Log { get; private set; } = null!;
+    [PluginService] internal static IFramework Framework { get; private set; } = null!;
+
+    internal Configuration Config { get; }
+    private WifiServer server;
 
     private const string Command = "/progex";
 
@@ -41,24 +45,45 @@ public sealed unsafe class Plugin : IDalamudPlugin
 
     public Plugin()
     {
+        Config = PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
+        if (Config.PairCode.Length == 0) { Config.PairCode = WifiServer.NewCode(); Config.Save(); }
+        server = new WifiServer(this);
+        if (Config.WifiSync) server.Start();
         CommandManager.AddHandler(Command, new CommandInfo(OnCommand)
         {
-            HelpMessage = "Write your progress to a file for the Completionist Log app. Add \"name\" to include your character's name.",
+            HelpMessage = "Save your progress to a file. /progex pair shows the code for Wi-Fi sync with the Completionist Log app; /progex newcode makes a new one; /progex wifi on|off.",
         });
     }
 
-    public void Dispose() => CommandManager.RemoveHandler(Command);
+    public void Dispose()
+    {
+        CommandManager.RemoveHandler(Command);
+        server.Dispose();
+    }
+
+    internal bool CanExport() => ClientState.IsLoggedIn && PlayerState.IsLoaded;
 
     private void OnCommand(string command, string args)
     {
-        if (!ClientState.IsLoggedIn || !PlayerState.IsLoaded)
+        var a = args.Trim().ToLowerInvariant();
+        if (a == "pair")
+        {
+            var ips = WifiServer.LocalAddresses();
+            Chat.Print($"[Progress Exporter] Pair code: {Config.PairCode}. In the app: Settings > From the game > Pair with your PC, and enter this code.");
+            Chat.Print($"[Progress Exporter] Wi-Fi sync is {(Config.WifiSync ? "on" : "off")}. This PC: {(ips.Count > 0 ? string.Join(", ", ips) : "no home network address found")}, port {Config.Port}.");
+            return;
+        }
+        if (a == "newcode") { Config.PairCode = WifiServer.NewCode(); Config.Save(); Chat.Print($"[Progress Exporter] New pair code: {Config.PairCode}. Pair the app again."); return; }
+        if (a == "wifi off") { Config.WifiSync = false; Config.Save(); server.Dispose(); server = new WifiServer(this); Chat.Print("[Progress Exporter] Wi-Fi sync is off."); return; }
+        if (a == "wifi on") { Config.WifiSync = true; Config.Save(); server.Dispose(); server = new WifiServer(this); server.Start(); Chat.Print("[Progress Exporter] Wi-Fi sync is on."); return; }
+        if (!CanExport())
         {
             Chat.PrintError("[Progress Exporter] Log in to a character first.");
             return;
         }
         try
         {
-            var data = Collect(args.Trim().Equals("name", StringComparison.OrdinalIgnoreCase));
+            var data = Collect(a == "name");
             var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Completionist Log");
             Directory.CreateDirectory(dir);
             var path = Path.Combine(dir, $"completionist-log-game-{DateTime.Now:yyyy-MM-dd-HHmm}.json");
@@ -75,7 +100,7 @@ public sealed unsafe class Plugin : IDalamudPlugin
     private static string Txt(Lumina.Text.ReadOnly.ReadOnlySeString s) => s.ExtractText().Trim();
     private static void Add(List<string> list, Lumina.Text.ReadOnly.ReadOnlySeString s) { var t = Txt(s); if (t.Length > 0) list.Add(t); }
 
-    private Dictionary<string, object> Collect(bool includeName)
+    internal Dictionary<string, object> Collect(bool includeName)
     {
         var ui = UIState.Instance();
         var ps = FFXIVClientStructs.FFXIV.Client.Game.UI.PlayerState.Instance();

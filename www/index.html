@@ -1053,12 +1053,16 @@ function settings(){
   const SW = '<span class="sw4">' + ['jobs','duties','gear','coll'].map(k=>`<i style="background:var(--c-${k})"></i>`).join('') + '</span>';
   return `${topbar('Settings',true)}
     <div class="setsec"><h3>Character</h3>${S.chars.map((c,i)=>`<button class="pal" data-char="${i}" aria-pressed="${S.char===i}"><span><b>${esc(c)}</b><br><span class="sub">${i===S.char?'Active · progress shown in the app':'Tap to switch'}</span></span></button>`).join('')}
-      <button class="ghost" style="display:block;width:100%;margin-top:8px" data-addchar>+ Add a character</button><p class="sample">Each character keeps its own story position, ticks, goals and timers.</p>
+      <button class="ghost" style="display:block;width:100%;box-sizing:border-box;margin-top:8px" data-addchar>+ Add a character</button><p class="sample">Each character keeps its own story position, ticks, goals and timers.</p>
       <div style="margin-top:14px"><b>Lodestone</b>
-        <p class="sub" style="margin:2px 0 8px">Paste ${esc(S.chars[S.char])}'s Lodestone page link to import job levels, achievements, mounts, minions, facewear and emotes. Importing only adds; it never unticks anything.</p>
-        <input class="search" id="lodeurl" type="url" inputmode="url" placeholder="https://na.finalfantasyxiv.com/lodestone/character/…" value="${esc(S.lode ? S.lode.url : '')}" aria-label="Lodestone character link">
-        <div class="btnrow"><button class="advance" data-lodeimport>Import from Lodestone</button></div>
-        ${S.lode && S.lode.at ? `<p class="sample">Last imported ${new Date(S.lode.at).toLocaleString([], {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'})}${S.lode.name?` · ${esc(S.lode.name)}`:''}</p>` : ''}</div></div>
+        ${S.lode && S.lode.id && !S.lodeEdit ? `
+        <div class="panel" style="margin-top:6px;flex-direction:column;align-items:stretch;gap:6px"><span><b>${esc(S.lode.name || 'Linked character')}</b>${S.lode.world?`<br><span class="sub">${esc(S.lode.world)}</span>`:''}</span>
+          <span class="sub">${S.lode.at ? `Last synced ${new Date(S.lode.at).toLocaleString([], {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'})}` : 'Not synced yet'}</span>
+          <div class="btnrow"><button class="advance" data-lodeimport>Sync with Lodestone</button><button class="ghost" data-lodeedit>Change</button></div></div>
+        <p class="sample">Syncing only adds; it never unticks anything.</p>` : `
+        <p class="sub" style="margin:2px 0 8px">Link ${esc(S.chars[S.char])} to a Lodestone character once, then sync whenever you like: job levels, achievements, mounts, minions, facewear and emotes.</p>
+        <input class="search" id="lodeurl" type="url" inputmode="url" placeholder="Lodestone character page link" value="${esc(S.lode ? S.lode.url : '')}" aria-label="Lodestone character link">
+        <div class="btnrow"><button class="advance" data-lodeimport>Link and sync</button>${S.lodeEdit?'<button class="ghost" data-lodeedit>Cancel</button><button class="ghost" data-lodeunlink style="color:var(--warn)">Unlink</button>':''}</div>`}</div></div>
     <div class="setsec"><h3>Spoilers: what to conceal</h3>
       ${sw('spoiler','Names','Locked things show as ???; sections you haven\'t reached show as ?????.')}
       ${sw('labels','Expansion and patch labels','No expansion tag, patch number or "steps ahead" count before something unlocks.')}
@@ -1434,6 +1438,8 @@ document.addEventListener('click', e => {
   if ('addchar' in ds){ const nm = (window.prompt('Name for the new character', 'Alt ' + S.chars.length) || '').trim(); if (!nm) return; S.chars.push(nm); switchChar(S.chars.length-1); toast(`Added ${nm}, starting fresh`); render(); return; }
   if (ds.backup){ ds.backup==='export' ? exportBackup() : importBackup(); return; }
   if ('lodeimport' in ds){ lodeImport(); return; }
+  if ('lodeedit' in ds){ S.lodeEdit = !S.lodeEdit; render(); return; }
+  if ('lodeunlink' in ds){ S.lode = null; S.lodeEdit = false; toast('Lodestone link removed'); render(); return; }
   if ('lodeundo' in ds){ if (LODE_UNDO){ applyProgress(LODE_UNDO); LODE_UNDO = null; GIDX = null; closeSheet(); render(); toast('Import undone'); } return; }
   if ('msqpick' in ds){ sheet('msq'); return; }
   if ('onboarddone' in ds){ S.onboard = false; render(); return; }
@@ -1517,11 +1523,11 @@ function lodeSheet(lines, done, summary){
 }
 async function lodeImport(){
   if (LODE_BUSY) return;
-  const inp = document.getElementById('lodeurl'); const raw = inp ? inp.value : (S.lode && S.lode.url);
+  const inp = document.getElementById('lodeurl'); const raw = inp ? inp.value : (S.lode && (S.lode.url || S.lode.id));
   const L = parseLodeUrl(raw);
   if (!L){ toast('Paste the link to your Lodestone character page first'); return; }
   if (!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform())){ toast('Lodestone import works in the Android app'); return; }
-  S.lode = {...(S.lode||{}), url: raw.trim(), id: L.id, region: L.region};
+  const same = S.lode && S.lode.id===L.id; S.lode = {...(same ? S.lode : {}), url: String(raw).trim(), id: L.id, region: L.region}; S.lodeEdit = false;
   LODE_BUSY = true; const before = progressSnap(); const prevMsq = S.msq;
   const steps = [['Profile','waiting'],['Job levels','waiting'],['Mounts','waiting'],['Minions','waiting'],['Facewear','waiting'],['Emotes','waiting'],['Achievements','waiting']];
   const set = (i, st) => { steps[i][1] = st; lodeSheet(steps, false); };
@@ -1534,7 +1540,7 @@ async function lodeImport(){
     set(0,'reading');
     const prof = await lodeGet(L, '', false);
     if (!prof){ throw {code:'notfound'}; }
-    const nm = prof.querySelector('.frame__chara__name'); if (nm) S.lode.name = nm.textContent.trim();
+    const nm = prof.querySelector('.frame__chara__name'); if (nm){ S.lode.name = nm.textContent.trim(); if (/^(Main|Alt \d+)$/.test(S.chars[S.char])) S.chars[S.char] = S.lode.name; }
     const wd = prof.querySelector('.frame__chara__world'); if (wd) S.lode.world = wd.textContent.trim();
     prof.querySelectorAll('.character-block').forEach(b => { const t = (b.querySelector('.character-block__title')||{}).textContent||'';
       if (/grand company/i.test(t)){ const v = ((b.querySelector('.character-block__name')||{}).textContent||'').split('/').pop().trim();

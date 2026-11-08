@@ -1092,6 +1092,8 @@ function settings(){
       <div class="btnrow"><button class="ghost" data-testnotif>Send a test alert</button></div></div>
     <div class="setsec"><h3>Your data</h3>
       <div class="btnrow"><button class="ghost" data-backup="export">Export backup</button><button class="ghost" data-backup="import">Import backup</button></div>
+      <div style="margin-top:12px"><b>From the game</b><p class="sub" style="margin:2px 0 8px">With the Completionist Log Exporter plugin, type /clexport in game, put the file on your phone, then import it here. Adds duty clears, crafting log progress, quests, Blue Magic and collections; never unticks anything.</p>
+        <div class="btnrow"><button class="ghost" data-gameimport>Import game export</button></div></div>
       <p class="sample">Your progress is saved on this phone as you go. A backup file holds everything for every character, so you can move to another device or restore after a reset. Export one now and then.</p>
       <div class="btnrow"><button class="ghost" data-resetall style="color:var(--warn)">${S.resetArm?'Tap again to reset':'Reset this character'}</button></div></div>`;
 }
@@ -1455,6 +1457,7 @@ document.addEventListener('click', e => {
   if ('lodeimport' in ds){ lodeImport(); return; }
   if ('lodereport' in ds){ const rep = {app:'completionist-log', version:'sync report', at:new Date().toISOString(), signedIn:!!(S.lode&&S.lode.signedIn), pages:LODE_LOG};
     shareFile('completionist-log-sync-report.json', JSON.stringify(rep, null, 1), 'Lodestone sync report').catch(()=>toast('Couldn\'t create the report')); return; }
+  if ('gameimport' in ds){ gameImportPick(); return; }
   if ('lodesignin' in ds){ lodeSignIn(); return; }
   if ('lodesignout' in ds){ const H = LODE(); if (H) H.signOut().then(()=>{ S.lode.signedIn = false; render(); toast('Signed out of the Lodestone'); }); return; }
   if ('lodeedit' in ds){ S.lodeEdit = !S.lodeEdit; render(); return; }
@@ -1747,6 +1750,57 @@ async function lodeSignIn(){
   try { const doc = await lodeGet(L, 'quest/', false); const ok = !!doc && (/ldst_is_loggedin\s*=\s*true/.test([...doc.querySelectorAll('script')].map(x=>x.textContent).join(' ')) || !!doc.querySelector('li.entry__quest'));
     S.lode.signedIn = ok; render(); toast(ok ? 'Signed in. Sync now includes quests, orchestrion, Triple Triad, Blue Magic and Trust' : 'Not signed in yet, or this account doesn\'t own that character'); }
   catch(e){ toast('Couldn\'t check the sign-in. Try again'); }
+}
+/* ================= game export (Dalamud exporter) ================= */
+function gameImportPick(){
+  const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'application/json,.json';
+  inp.onchange = async () => { const f = inp.files[0]; if (!f) return;
+    let d; try { d = JSON.parse(await f.text()); } catch(e){ toast('That file isn\'t a game export'); return; }
+    if (d.app !== 'completionist-log-game'){ toast(d.app==='completionist-log' ? 'That\'s an app backup: use Import backup instead' : 'That file isn\'t a game export'); return; }
+    gameImport(d); };
+  inp.click();
+}
+function gameImport(d){
+  const before = progressSnap(), prevMsq = S.msq;
+  const res = {jobs:0, quests:0, side:0, duties:0, brackets:0, blu:0}; const own = {};
+  const collIndex = cat => { const m = new Map(); (COLLDATA[cat]||[]).forEach(([,ms]) => ms.forEach(x => m.set(norm(x[0]), x[0]))); return m; };
+  const addOwn = (names, cat) => { const idx = collIndex(cat); let n = 0; (names||[]).forEach(x => { const c = idx.get(norm(x)); if (c && !OWN.has(c)){ OWN.add(c); n++; } }); own[cat] = n; };
+  let msqTo = S.msq; const bump = id => { const i = mIdx(id); if (i > msqTo) msqTo = i; };
+  // job levels (only ever raised)
+  Object.entries(d.jobs||{}).forEach(([ab, lv]) => {
+    if (ab==='BLU'){ if (lv > (N.blu||0)){ N.blu = lv; res.jobs++; } return; }
+    if (ab==='BST'){ if (lv > (N.bst||0)){ N.bst = lv; res.jobs++; } return; }
+    if (CLV[ab] != null){ if (lv > CLV[ab]){ CLV[ab] = lv; res.jobs++; } return; }
+    JOBS.forEach(([,js]) => js.forEach(j => { if (j[0]===ab && lv > j[2]){ j[2] = lv; res.jobs++; } }));
+  });
+  // quests by id: story, unlock quests, series; sidequests by name
+  const names = new Set();
+  (d.quests||[]).forEach(([id, n]) => { names.add(norm(n));
+    if (MI.has('m'+id)) bump('m'+id);
+    const q = Q['q'+id]; if (q && !q.done){ q.done = true; q.at = QSEQ++; res.quests++; if (q.msq) bump(q.msq); }
+  });
+  const sq = new Set((d.quests||[]).map(([id]) => +id));
+  DATA.SERIES.forEach(sr => sr[4].forEach(([id]) => { if (sq.has(+id) && !C.has('sq:'+id)){ C.add('sq:'+id); res.side++; } }));
+  Object.entries(DATA.ZQ).forEach(([zn,qs]) => qs.forEach((n,i) => { const k = `zs:${zn}:${i}`; if (names.has(norm(n)) && !C.has(k)){ C.add(k); res.side++; } }));
+  DATA.SIDE.forEach((z,si) => z[3].forEach((n,j) => { if (names.has(norm(n))) C.add(`zq:s${si}:${j}`); }));
+  // duties cleared
+  const cleared = new Set((d.duties||[]).map(x => 'd'+x));
+  DUTIES.forEach(du => { if (!cleared.has(du.id)) return; if (!du.turns && !du.done){ du.done = true; res.duties++; } if (du.msq) bump(du.msq); });
+  // crafting log: a bracket is done when every recipe in it is done
+  Object.entries(d.recipes||{}).forEach(([job, perX]) => Object.entries(perX).forEach(([x, row]) => row.forEach(([dn, tot], i) => {
+    const k = `recipes:${x}:${job}:${i}`; if (tot > 0 && dn >= tot && !C.has(k)){ C.add(k); res.brackets++; } })));
+  // collections
+  addOwn(d.orchestrion, 'Orchestrion rolls'); addOwn(d.cards, 'Triple Triad cards'); addOwn(d.mounts, 'Mounts'); addOwn(d.minions, 'Minions');
+  addOwn(d.emotes, 'Emotes'); addOwn(d.facewear, 'Facewear'); addOwn(d.accessories, 'Fashion accessories');
+  (d.blu||[]).forEach(n => { const hit = BLU.find(b => norm(b)===norm(n)); if (hit && !C.has('blu:'+hit)){ C.add('blu:'+hit); res.blu++; } });
+  if (msqTo > S.msq){ S.msq = msqTo; S.onboard = false; }
+  LODE_UNDO = before; GIDX = null; render();
+  const pl = (n, one, many) => n ? `${fmtN(n)} ${n===1?one:many}` : '';
+  const parts = [pl(res.quests,'unlock quest','unlock quests'), pl(res.side,'side story or sidequest','side stories and sidequests'), pl(res.duties,'cleared duty','cleared duties'), pl(res.brackets,'crafting log bracket','crafting log brackets'), pl(res.blu,'Blue Magic spell','Blue Magic spells'),
+    ...Object.entries(own).map(([c,n]) => n ? `${fmtN(n)} ${c.toLowerCase()}` : '')].filter(Boolean);
+  const story = S.msq > prevMsq ? ` Story moved forward to <b>${esc(MSQ[S.msq].n)}</b>.` : '';
+  const when = d.at ? new Date(d.at).toLocaleString([], {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'}) : '';
+  lodeSheet([['Game export'+(when?` from ${when}`:''), 'done']], true, (res.jobs ? `Raised ${pl(res.jobs,'job level','job levels')}. ` : '') + (parts.length ? `Added ${parts.join(', ')}.` : 'Everything was already up to date.') + story);
 }
 /* ================= saving ================= */
 const STORE = 'completionist-log.v1';

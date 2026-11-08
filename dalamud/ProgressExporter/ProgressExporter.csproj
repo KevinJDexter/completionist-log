@@ -5,7 +5,7 @@
     <Author>Kevin Dexter</Author>
     <Name>Progress Exporter</Name>
     <Punchline>Exports your unlocks and progress to a file for the Completionist Log app.</Punchline>
-    <Description>Type /progex to write one JSON file with completed quests, cleared duties, crafting log progress, job levels, Blue Magic spells, orchestrion rolls, Triple Triad cards, mounts, minions, emotes, facewear and fashion accessories. Read-only: nothing is changed in game and nothing is uploaded. Import the file in the Completionist Log app.</Description>
+    <Description>Type /progex to open it: pair with the app over Wi-Fi, choose what to share, or save one JSON file with completed quests, cleared duties, crafting log progress, job levels, Blue Magic spells, orchestrion rolls, Triple Triad cards, mounts, minions, emotes, facewear and fashion accessories. Read-only: nothing is changed in game and nothing is uploaded. Import the file in the Completionist Log app.</Description>
     <RepoUrl>https://github.com/KevinJDexter/completionist-log</RepoUrl>
     <Tags>completionist;tracker;export</Tags>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>

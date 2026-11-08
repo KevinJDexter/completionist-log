@@ -24,6 +24,7 @@ internal sealed class WifiServer : IDisposable
     private readonly CancellationTokenSource cts = new();
     private TcpListener? tcp;
     private UdpClient? udp;
+    public string? Error { get; private set; }
 
     public WifiServer(Plugin plugin) { this.plugin = plugin; }
 
@@ -41,6 +42,7 @@ internal sealed class WifiServer : IDisposable
         }
         catch (Exception e)
         {
+            Error = e.Message;
             Plugin.Log.Error(e, "Wi-Fi sync could not start");
             Plugin.Chat.PrintError($"[Progress Exporter] Wi-Fi sync couldn't start on port {port}: {e.Message}");
         }
@@ -132,10 +134,15 @@ internal sealed class WifiServer : IDisposable
                 if (path == "/ping") { await Send(stream, 200, "{\"app\":\"progex\",\"ok\":true}"); return; }
                 if (path != "/export") { await Send(stream, 404, "{\"error\":\"not found\"}"); return; }
 
-                Dictionary<string, object>? data = await Plugin.Framework.RunOnFrameworkThread(() => plugin.CanExport() ? plugin.Collect(false) : null);
+                Dictionary<string, object>? data = await Plugin.Framework.RunOnFrameworkThread(() => plugin.CanExport() ? plugin.Collect(plugin.Config.IncludeName) : null);
                 if (data == null) { await Send(stream, 409, "{\"error\":\"not logged in\"}"); return; }
                 await Send(stream, 200, JsonSerializer.Serialize(data));
-                await Plugin.Framework.RunOnFrameworkThread(() => Plugin.Chat.Print("[Progress Exporter] Sent your progress to the Completionist Log app."));
+                await Plugin.Framework.RunOnFrameworkThread(() =>
+                {
+                    var line = $"Sent {Plugin.Summary(data)}.";
+                    plugin.Config.LastSync = DateTime.UtcNow; plugin.Config.LastSyncSummary = line; plugin.Config.Save();
+                    Plugin.Chat.Print($"[Progress Exporter] {line}");
+                });
             }
             catch (Exception e) { Plugin.Log.Warning(e, "request"); }
         }

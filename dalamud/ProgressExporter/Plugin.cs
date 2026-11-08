@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 using Dalamud.Game.Command;
+using Dalamud.Interface.Windowing;
 using Dalamud.IoC;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
@@ -30,6 +31,17 @@ public sealed unsafe class Plugin : IDalamudPlugin
 
     internal Configuration Config { get; }
     private WifiServer server;
+    internal WifiServer Server => server;
+    private readonly WindowSystem windows = new("ProgressExporter");
+    private readonly SettingsWindow settings;
+
+    internal static readonly (string Key, string Label)[] Categories =
+    {
+        ("quests", "Completed quests"), ("duties", "Cleared duties"), ("recipes", "Crafting log"), ("jobs", "Job levels"),
+        ("blu", "Blue Magic spells"), ("orchestrion", "Orchestrion rolls"), ("cards", "Triple Triad cards"), ("mounts", "Mounts"),
+        ("minions", "Minions"), ("emotes", "Emotes"), ("facewear", "Facewear"), ("accessories", "Fashion accessories"),
+    };
+    internal static string ExportDir => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Completionist Log");
 
     private const string Command = "/progex";
 
@@ -49,16 +61,66 @@ public sealed unsafe class Plugin : IDalamudPlugin
         if (Config.PairCode.Length == 0) { Config.PairCode = WifiServer.NewCode(); Config.Save(); }
         server = new WifiServer(this);
         if (Config.WifiSync) server.Start();
+        settings = new SettingsWindow(this);
+        windows.AddWindow(settings);
+        PluginInterface.UiBuilder.Draw += windows.Draw;
+        PluginInterface.UiBuilder.OpenConfigUi += settings.Toggle;
+        PluginInterface.UiBuilder.OpenMainUi += settings.Toggle;
         CommandManager.AddHandler(Command, new CommandInfo(OnCommand)
         {
-            HelpMessage = "Save your progress to a file. /progex pair shows the code for Wi-Fi sync with the Completionist Log app; /progex newcode makes a new one; /progex wifi on|off.",
+            HelpMessage = "Open the Progress Exporter window. /progex export saves a file; /progex pair shows the Wi-Fi pair code; /progex newcode makes a new one; /progex wifi on|off.",
         });
     }
 
     public void Dispose()
     {
         CommandManager.RemoveHandler(Command);
+        PluginInterface.UiBuilder.Draw -= windows.Draw;
+        PluginInterface.UiBuilder.OpenConfigUi -= settings.Toggle;
+        PluginInterface.UiBuilder.OpenMainUi -= settings.Toggle;
+        windows.RemoveAllWindows();
         server.Dispose();
+    }
+
+    internal void SetWifi(bool on)
+    {
+        Config.WifiSync = on; Config.Save();
+        server.Dispose(); server = new WifiServer(this);
+        if (on) server.Start();
+    }
+
+    internal void NewCode() { Config.PairCode = WifiServer.NewCode(); Config.Save(); Chat.Print($"[Progress Exporter] New pair code: {Config.PairCode}. Pair the app again."); }
+
+    /// <summary>A short line naming what an export holds, e.g. "quests (2,341), duties (412), crafting log".</summary>
+    internal static string Summary(Dictionary<string, object> d)
+    {
+        var parts = new List<string>();
+        foreach (var (key, label) in Categories)
+        {
+            if (!d.TryGetValue(key, out var v)) continue;
+            var name = label.ToLowerInvariant().Replace("completed ", "").Replace("cleared ", "");
+            if (v is System.Collections.ICollection col && key != "recipes") parts.Add($"{name} ({col.Count:N0})");
+            else parts.Add(name);
+        }
+        return parts.Count > 0 ? string.Join(", ", parts) : "nothing (every category is switched off)";
+    }
+
+    internal void ExportFile()
+    {
+        if (!CanExport()) { Chat.PrintError("[Progress Exporter] Log in to a character first."); return; }
+        try
+        {
+            var data = Collect(Config.IncludeName);
+            Directory.CreateDirectory(ExportDir);
+            var path = Path.Combine(ExportDir, $"completionist-log-game-{DateTime.Now:yyyy-MM-dd-HHmm}.json");
+            File.WriteAllText(path, JsonSerializer.Serialize(data));
+            Chat.Print($"[Progress Exporter] Saved {Path.GetFileName(path)} to Documents\\Completionist Log with {Summary(data)}.");
+        }
+        catch (Exception e)
+        {
+            Log.Error(e, "Export failed");
+            Chat.PrintError($"[Progress Exporter] Export failed: {e.Message}");
+        }
     }
 
     internal bool CanExport() => ClientState.IsLoggedIn && PlayerState.IsLoaded;
@@ -66,6 +128,8 @@ public sealed unsafe class Plugin : IDalamudPlugin
     private void OnCommand(string command, string args)
     {
         var a = args.Trim().ToLowerInvariant();
+        if (a == "") { settings.Toggle(); return; }
+        if (a == "export" || a == "export name") { ExportFile(); return; }
         if (a == "pair")
         {
             var ips = WifiServer.LocalAddresses();
@@ -73,28 +137,10 @@ public sealed unsafe class Plugin : IDalamudPlugin
             Chat.Print($"[Progress Exporter] Wi-Fi sync is {(Config.WifiSync ? "on" : "off")}. This PC: {(ips.Count > 0 ? string.Join(", ", ips) : "no home network address found")}, port {Config.Port}.");
             return;
         }
-        if (a == "newcode") { Config.PairCode = WifiServer.NewCode(); Config.Save(); Chat.Print($"[Progress Exporter] New pair code: {Config.PairCode}. Pair the app again."); return; }
-        if (a == "wifi off") { Config.WifiSync = false; Config.Save(); server.Dispose(); server = new WifiServer(this); Chat.Print("[Progress Exporter] Wi-Fi sync is off."); return; }
-        if (a == "wifi on") { Config.WifiSync = true; Config.Save(); server.Dispose(); server = new WifiServer(this); server.Start(); Chat.Print("[Progress Exporter] Wi-Fi sync is on."); return; }
-        if (!CanExport())
-        {
-            Chat.PrintError("[Progress Exporter] Log in to a character first.");
-            return;
-        }
-        try
-        {
-            var data = Collect(a == "name");
-            var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Completionist Log");
-            Directory.CreateDirectory(dir);
-            var path = Path.Combine(dir, $"completionist-log-game-{DateTime.Now:yyyy-MM-dd-HHmm}.json");
-            File.WriteAllText(path, JsonSerializer.Serialize(data, new JsonSerializerOptions { WriteIndented = false }));
-            Chat.Print($"[Progress Exporter] Saved {Path.GetFileName(path)} to Documents\\Completionist Log. Put it on your phone (Google Drive works) and choose Import game export in the app.");
-        }
-        catch (Exception e)
-        {
-            Log.Error(e, "Export failed");
-            Chat.PrintError($"[Progress Exporter] Export failed: {e.Message}");
-        }
+        if (a == "newcode") { NewCode(); return; }
+        if (a == "wifi off") { SetWifi(false); Chat.Print("[Progress Exporter] Wi-Fi sync is off."); return; }
+        if (a == "wifi on") { SetWifi(true); Chat.Print("[Progress Exporter] Wi-Fi sync is on."); return; }
+        Chat.Print("[Progress Exporter] /progex opens the window. Also: /progex export, /progex pair, /progex newcode, /progex wifi on|off.");
     }
 
     private static string Txt(Lumina.Text.ReadOnly.ReadOnlySeString s) => s.ExtractText().Trim();
@@ -111,6 +157,7 @@ public sealed unsafe class Plugin : IDalamudPlugin
             ["at"] = DateTime.UtcNow.ToString("o"),
         };
         if (includeName) outp["character"] = PlayerState.CharacterName;
+        outp["shared"] = Categories.Select(c => c.Key).Where(Config.Shares).ToList();
 
         // job levels
         var jobs = new Dictionary<string, int>();
@@ -211,6 +258,7 @@ public sealed unsafe class Plugin : IDalamudPlugin
             if (act.UnlockLink.RowId != 0 && ui->IsUnlockLinkUnlockedOrQuestCompleted(act.UnlockLink.RowId)) Add(blu, act.Name);
         }
         outp["blu"] = blu;
+        foreach (var (key, _) in Categories) if (!Config.Shares(key)) outp.Remove(key);
         return outp;
     }
 }

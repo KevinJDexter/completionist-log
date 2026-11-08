@@ -1062,7 +1062,10 @@ function settings(){
         ${S.lode && S.lode.id && !S.lodeEdit ? `
         <div class="panel" style="margin-top:6px;flex-direction:column;align-items:stretch;gap:6px"><span><b>${esc(S.lode.name || 'Linked character')}</b>${S.lode.world?`<br><span class="sub">${esc(S.lode.world)}</span>`:''}</span>
           <span class="sub">${S.lode.at ? `Last synced ${new Date(S.lode.at).toLocaleString([], {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'})}` : 'Not synced yet'}</span>
-          <div class="btnrow"><button class="advance" data-lodeimport>Sync with Lodestone</button><button class="ghost" data-lodeedit>Change</button></div></div>
+          <div class="btnrow"><button class="advance" data-lodeimport>Sync with Lodestone</button><button class="ghost" data-lodeedit>Change</button></div>
+          <div style="border-top:1px solid var(--line);padding-top:8px;margin-top:4px">${S.lode.signedIn
+            ? `<span class="sub">Signed in: syncs also bring in quests, orchestrion rolls, Triple Triad cards, Blue Magic and Trust levels.</span><div class="btnrow"><button class="ghost" data-lodesignout>Sign out</button></div>`
+            : `<span class="sub">Quests, orchestrion rolls, Triple Triad cards, Blue Magic and Trust levels are only visible to you. Sign in to the Lodestone once to include them.</span><div class="btnrow"><button class="ghost" data-lodesignin>Sign in to the Lodestone</button></div>`}</div></div>
         <p class="sample">Syncing only adds; it never unticks anything.</p>` : `
         <p class="sub" style="margin:2px 0 8px">Link ${esc(S.chars[S.char])} to a Lodestone character once, then sync whenever you like: job levels, achievements, mounts, minions, facewear and emotes.</p>
         <input class="search" id="lodeurl" type="url" inputmode="url" placeholder="Lodestone character page link" value="${esc(S.lode ? S.lode.url : '')}" aria-label="Lodestone character link">
@@ -1448,6 +1451,8 @@ document.addEventListener('click', e => {
       if (st!=='granted'){ toast('Notifications are turned off for this app in your phone settings'); return; }
       await LN.schedule({notifications:[{id:9999, title:'Completionist Log', body:'Test alert: notifications are working', channelId:'timers', schedule:{at:new Date(Date.now()+5000), allowWhileIdle:true}}]}); toast('Test alert in 5 seconds'); })(); return; }
   if ('lodeimport' in ds){ lodeImport(); return; }
+  if ('lodesignin' in ds){ lodeSignIn(); return; }
+  if ('lodesignout' in ds){ const H = LODE(); if (H) H.signOut().then(()=>{ S.lode.signedIn = false; render(); toast('Signed out of the Lodestone'); }); return; }
   if ('lodeedit' in ds){ S.lodeEdit = !S.lodeEdit; render(); return; }
   if ('lodeunlink' in ds){ S.lode = null; S.lodeEdit = false; toast('Lodestone link removed'); render(); return; }
   if ('lodeundo' in ds){ if (LODE_UNDO){ applyProgress(LODE_UNDO); LODE_UNDO = null; GIDX = null; closeSheet(); render(); toast('Import undone'); } return; }
@@ -1513,11 +1518,12 @@ function parseLodeUrl(u){
   const m = String(u||'').match(/(?:https?:\/\/)?(na|eu|fr|de|jp)\.finalfantasyxiv\.com\/lodestone\/character\/(\d+)/i) || String(u||'').match(/^\s*(\d{4,})\s*$/);
   if (!m) return null; return m.length===3 ? {region:m[1].toLowerCase()==='jp'?'na':m[1].toLowerCase(), id:m[2]} : {region:'na', id:m[1]};
 }
+const LODE = () => window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Lodestone;
+const lodeHost = L => `https://${L.region==='fr'||L.region==='de'?'eu':L.region}.finalfantasyxiv.com`;
 async function lodeGet(L, path, mobile=true){
-  const H = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.CapacitorHttp;
-  if (!H) throw {code:'web'};
-  const url = `https://${L.region==='fr'||L.region==='de'?'eu':L.region}.finalfantasyxiv.com/lodestone/character/${L.id}/${path}`;
-  const r = await H.get({url, headers:{'User-Agent': mobile ? LODE_UA_MOBILE : LODE_UA_DESKTOP, 'Accept-Language':'en-US,en;q=0.9'}, responseType:'text', connectTimeout:15000, readTimeout:20000});
+  const H = LODE(); if (!H) throw {code:'web'};
+  const url = `${lodeHost(L)}/lodestone/character/${L.id}/${path}`;
+  const r = await H.get({url, userAgent: mobile ? LODE_UA_MOBILE : LODE_UA_DESKTOP});
   if (r.status===404) return null;
   if (r.status===403) throw {code:'private', path};
   if (r.status===429 || r.status>=500) throw {code:'busy', status:r.status};
@@ -1540,9 +1546,9 @@ async function lodeImport(){
   if (!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform())){ toast('Lodestone import works in the Android app'); return; }
   const same = S.lode && S.lode.id===L.id; S.lode = {...(same ? S.lode : {}), url: String(raw).trim(), id: L.id, region: L.region}; S.lodeEdit = false;
   LODE_BUSY = true; const before = progressSnap(); const prevMsq = S.msq;
-  const steps = [['Profile','waiting'],['Job levels','waiting'],['Mounts','waiting'],['Minions','waiting'],['Facewear','waiting'],['Emotes','waiting'],['Achievements','waiting']];
+  const steps = [['Profile','waiting'],['Job levels','waiting'],['Mounts','waiting'],['Minions','waiting'],['Facewear','waiting'],['Emotes','waiting'],['Achievements','waiting']].concat(S.lode.signedIn ? [['Quests','waiting'],['Orchestrion','waiting'],['Triple Triad','waiting'],['Blue Magic','waiting'],['Trust','waiting']] : []);
   const set = (i, st) => { steps[i][1] = st; lodeSheet(steps, false); };
-  const res = {jobs:0, mounts:0, minions:0, face:0, emotes:0, ach:0, quests:0, duties:0, soc:0, hidden:[]};
+  const res = {jobs:0, mounts:0, minions:0, face:0, emotes:0, ach:0, quests:0, duties:0, soc:0, orch:0, tt:0, blu:0, trust:0, qdone:0, side:0, hidden:[]};
   const collIndex = cat => { const m = new Map(); (COLLDATA[cat]||[]).forEach(([,ms]) => ms.forEach(x => m.set(norm(x[0]), x[0]))); return m; };
   const addOwn = (names, cat, key) => { const idx = collIndex(cat); names.forEach(n => { const c = idx.get(norm(n)); if (c && !OWN.has(c)){ OWN.add(c); res[key]++; } }); };
   let msqTo = S.msq; const bump = id => { const i = mIdx(id); if (i > msqTo) msqTo = i; };
@@ -1604,11 +1610,12 @@ async function lodeImport(){
       set(6, got.size ? 'done' : 'none public');
       if (!got.size) res.hidden.push('Achievements');
     } catch(e){ if (e.code==='private'){ res.hidden.push('Achievements'); set(6,'private'); } else throw e; }
+    if (S.lode.signedIn) await lodeOwnerPages(L, steps, set, res, addOwn, bump);
     if (msqTo > S.msq){ S.msq = msqTo; S.onboard = false; }
     S.lode.at = Date.now();
     LODE_UNDO = before; GIDX = null; render();
     const pl = (n, one, many) => n ? `${fmtN(n)} ${n===1?one:many}` : '';
-    const parts = [pl(res.mounts,'mount','mounts'), pl(res.minions,'minion','minions'), pl(res.face,'facewear','facewear'), pl(res.emotes,'emote','emotes'), pl(res.ach,'achievement','achievements'), pl(res.duties,'cleared duty','cleared duties'), pl(res.quests,'unlock quest','unlock quests'), pl(res.soc,'reputation rank','reputation ranks')].filter(Boolean);
+    const parts = [pl(res.qdone,'quest','quests'), pl(res.side,'sidequest','sidequests'), pl(res.orch,'orchestrion roll','orchestrion rolls'), pl(res.tt,'Triple Triad card','Triple Triad cards'), pl(res.blu,'Blue Magic spell','Blue Magic spells'), pl(res.trust,'Trust level','Trust levels'), pl(res.mounts,'mount','mounts'), pl(res.minions,'minion','minions'), pl(res.face,'facewear','facewear'), pl(res.emotes,'emote','emotes'), pl(res.ach,'achievement','achievements'), pl(res.duties,'cleared duty','cleared duties'), pl(res.quests,'unlock quest','unlock quests'), pl(res.soc,'reputation rank','reputation ranks')].filter(Boolean);
     const lvl = res.jobs ? `Raised ${pl(res.jobs,'job level','job levels')}. ` : '';
     const story = S.msq > prevMsq ? ` Story moved forward to <b>${esc(MSQ[S.msq].n)}</b>.` : '';
     const hid = res.hidden.length ? ` <span class="sub">Not visible on your Lodestone: ${res.hidden.join(', ')}. Check the Lodestone privacy settings if that's unexpected.</span>` : '';
@@ -1676,6 +1683,57 @@ async function notifStart(){
   const App = window.Capacitor.Plugins.App;
   if (App) App.addListener('appStateChange', st => { if (st.isActive){ syncNotifs(true); if (S.view==='timers') render(); } });
   syncNotifs(true);
+}
+// owner-only pages: need the in-app Square Enix sign-in
+async function lodeOwnerPages(L, steps, set, res, addOwn, bump){
+  const base = steps.length - 5, isOwnerView = doc => !!doc && (/ldst_is_loggedin\s*=\s*true/.test([...doc.querySelectorAll('script')].map(x=>x.textContent).join(' ')) || !!doc.querySelector('li.entry__quest, ul.orchestrion-list, ul.tripletriad-card_list, li.bluemage-action__list__item, ul.trust__character'));
+  const pages = async (path, extra='') => { const out = []; let n = 1, total = 1;
+    do { const doc = await lodeGet(L, `${path}?${extra}page=${n}`, false); if (!doc) break; out.push(doc);
+      const m = ((doc.querySelector('.btn__pager__current')||{}).textContent||'').match(/(\d+)\D+(\d+)/); total = m ? +m[2] : 1; n++;
+      set(steps.indexOf(steps.find(x=>x[0]===({'quest/':'Quests','goldsaucer/tripletriad/':'Triple Triad'})[path])), `page ${n-1} of ${total}`);
+    } while (n <= total && n <= 200); return out; };
+  // quests: story position, unlock quests, sidequests
+  set(base, 'reading');
+  const qdocs = await pages('quest/');
+  if (!qdocs.length || !isOwnerView(qdocs[0])){ S.lode.signedIn = false; for (let i=base;i<steps.length;i++) set(i,'sign in again'); res.hidden.push('owner pages (sign in again in Settings)'); return; }
+  const titles = new Set();
+  qdocs.forEach(doc => doc.querySelectorAll('li.entry__quest .entry__quest__name').forEach(nb => { const parts = [...nb.childNodes].map(x=>x.textContent.trim()).filter(t=>t && t!=='-'); const t = parts.length ? parts[parts.length-1] : nb.textContent.trim(); if (t) titles.add(norm(t)); }));
+  MSQ.forEach((m,i) => { if (titles.has(norm(m.n))) bump(m.id); });
+  Object.values(Q).forEach(q => { if (titles.has(norm(q.n)) && !q.done){ q.done = true; q.at = QSEQ++; res.qdone++; if (q.msq) bump(q.msq); } });
+  Object.entries(DATA.ZQ).forEach(([zn,qs]) => qs.forEach((n,i) => { const k = `zs:${zn}:${i}`; if (titles.has(norm(n)) && !C.has(k)){ C.add(k); res.side++; } }));
+  DATA.SIDE.forEach((z,si) => z[3].forEach((n,j) => { const k = `zq:s${si}:${j}`; if (titles.has(norm(n))) C.add(k); }));
+  set(base, `${fmtN(titles.size)} found`);
+  // orchestrion
+  set(base+1, 'reading');
+  const od = await lodeGet(L, 'orchestrion/', false);
+  if (od) addOwn([...od.querySelectorAll('ul.orchestrion-list > li:not(.unacquired) .orchestrion-list__name')].map(e=>e.textContent.trim()), 'Orchestrion rolls', 'orch');
+  set(base+1, 'done');
+  // Triple Triad
+  set(base+2, 'reading');
+  const tdocs = await pages('goldsaucer/tripletriad/', 'hold=&');
+  const cards = []; tdocs.forEach(doc => doc.querySelectorAll('ul.tripletriad-card_list > li .name_inner').forEach(e => cards.push(e.textContent.trim())));
+  addOwn(cards, 'Triple Triad cards', 'tt'); set(base+2, 'done');
+  // Blue Magic
+  set(base+3, 'reading');
+  const bd = await lodeGet(L, 'bluemage/', false);
+  if (bd) bd.querySelectorAll('li.bluemage-action__list__item.sys-reward').forEach(li => { if (li.classList.contains('sys-no_reward')) return;
+    let n = ((li.querySelector('.bluemage-action__name')||{}).textContent||'').trim(); if (!n) n = (((li.querySelector('.bluemage-tooltip__header')||{}).textContent||'').replace(/^\s*No\.\s*\d+\s*/,'')).trim();
+    const hit = BLU.find(b => norm(b)===norm(n)); if (hit && !C.has('blu:'+hit)){ C.add('blu:'+hit); res.blu++; } });
+  set(base+3, 'done');
+  // Trust levels
+  set(base+4, 'reading');
+  const td = await lodeGet(L, 'trust/', false);
+  if (td) td.querySelectorAll('ul.trust__character > li').forEach(li => { const n = ((li.querySelector('.trust__character__name')||{}).textContent||'').trim(); const lv = parseInt((((li.querySelector('.trust__level')||{}).textContent||'').match(/\d+/)||[0])[0], 10);
+    const i = DATA.TRUST.findIndex(t => norm(t)===norm(n)); if (i>=0 && lv > (N['trust'+i]||0)){ N['trust'+i] = lv; res.trust++; } });
+  set(base+4, 'done');
+}
+async function lodeSignIn(){
+  const H = LODE(); if (!H){ toast('Signing in works in the Android app'); return; }
+  const L = S.lode && S.lode.id ? S.lode : null; if (!L){ toast('Link your Lodestone character first'); return; }
+  await H.signIn({url: `${lodeHost(L)}/lodestone/account/login/`});
+  try { const doc = await lodeGet(L, 'quest/', false); const ok = !!doc && (/ldst_is_loggedin\s*=\s*true/.test([...doc.querySelectorAll('script')].map(x=>x.textContent).join(' ')) || !!doc.querySelector('li.entry__quest'));
+    S.lode.signedIn = ok; render(); toast(ok ? 'Signed in. Sync now includes quests, orchestrion, Triple Triad, Blue Magic and Trust' : 'Not signed in yet, or this account doesn\'t own that character'); }
+  catch(e){ toast('Couldn\'t check the sign-in. Try again'); }
 }
 /* ================= saving ================= */
 const STORE = 'completionist-log.v1';

@@ -446,6 +446,50 @@ function nextOcc(c){ const [hh,mm] = c.time.split(':').map(Number); const now = 
   while (d.getDay()!==c.dow || d <= now) d.setDate(d.getDate()+1); return d; }
 const repLabel = c => c.rep==='daily' ? 'Every day' : c.rep==='weekly' ? `Every ${DOW[c.dow]}` : (c.date ? new Date(c.date+'T00:00').toLocaleDateString([], {weekday:'short', month:'short', day:'numeric'}) : 'No date');
 const tOK = n => !TREQ[n] || msqDone(TREQ[n]);
+// Jumbo Cactpot drawing by data center region (UTC hour, weekday 0=Sun)
+const JUMBO = {na:[2,0,'North America'], eu:[19,6,'Europe'], jp:[12,6,'Japan'], oce:[9,6,'Oceania']};
+const NA_DC = /\[(Aether|Primal|Crystal|Dynamis)\]/i, EU_DC = /\[(Chaos|Light|Shadow)\]/i, OCE_DC = /\[Materia\]/i;
+function jumboRegion(){ const R = (S.timers.rec||{}).jumbo; if (R && R.region) return R.region; const w = (S.lode && S.lode.world) || ''; return EU_DC.test(w) ? 'eu' : OCE_DC.test(w) ? 'oce' : (NA_DC.test(w) || !w) ? 'na' : 'jp'; }
+const everyN = (startMs, stepMs, n) => Array.from({length:n}, (_,i) => new Date(startMs + i*stepMs));
+const nextEvery = mins => { const step = mins*60e3; return Math.ceil((Date.now()+1000)/step)*step; };
+// timers that recur on the game's own schedules
+const RECUR = [
+  {k:'squad', n:'Squadron training', sub:'3 sessions a day', ok:()=>tOK('Squadron'), occ:n=>everyN(nextUTC(20).getTime(), 864e5, n), body:'Squadron training sessions have reset'},
+  {k:'cosmic', n:'Cosmic Exploration', sub:'Daily successes reset', ok:()=>msqDone(XGATE.dt), occ:n=>everyN(nextUTC(9).getTime(), 864e5, n), body:'Cosmic Exploration daily successes have reset'},
+  {k:'jumbo', n:'Jumbo Cactpot drawing', sub:null, ok:()=>tOK('Mini Cactpot'), occ:n=>{ const [h,d] = JUMBO[jumboRegion()]; return everyN(nextUTC(h,d).getTime(), 7*864e5, n); }, body:'The Jumbo Cactpot drawing is now. Claim within the hour for the early bird bonus'},
+  {k:'fashion', n:'Fashion Report judging', sub:'Opens Friday, runs until the weekly reset', ok:()=>tOK('Mini Cactpot'), occ:n=>everyN(nextUTC(8,5).getTime(), 7*864e5, n), body:'Fashion Report judging is open'},
+  {k:'ocean', n:'Ocean Fishing', sub:'Boards every 2 hours, 15-minute window', ok:()=>true, lead:true, occ:n=>everyN(nextEvery(120), 72e5, n), body:'Ocean Fishing boarding is open for 15 minutes'},
+  {k:'gate', n:'Gold Saucer GATE', sub:'Every 20 minutes', ok:()=>tOK('Mini Cactpot'), lead:true, occ:n=>everyN(nextEvery(20), 12e5, n), body:'A GATE is starting at the Gold Saucer'},
+];
+const RECN = {squad:14, cosmic:14, jumbo:4, fashion:4, ocean:24, gate:36};
+// every recurring alarm, by key: the object holding on/mode/armed, and its upcoming times
+function alarmOf(key){ const T = S.timers;
+  if (key.startsWith('dig:')) return T[key.slice(4)];
+  if (key==='gc'){ if (!T.gcAl) T.gcAl = {on: T.gc !== false}; return T.gcAl; }
+  if (key.startsWith('rec:')){ T.rec = T.rec || {}; const k = key.slice(4); return T.rec[k] = T.rec[k] || {on:false, mode:'repeat'}; }
+  if (key.startsWith('rem:')) return S.custom[+key.slice(4)];
+  return null; }
+const alarmOn = (key, a) => !!(a && (key.startsWith('rem:') ? a.alarm : a.on));
+function alarmTimes(key, n){ const T = S.timers;
+  if (key==='dig:dailyDigest') return dailyAt(T.dailyDigest.at, n);
+  if (key==='dig:weeklyDigest'){ const r = nextUTC(8,2), [h,m] = hm(T.weeklyDigest.at); return Array.from({length:n}, (_,i) => { const reset = new Date(r.getTime()+i*7*864e5), d = new Date(reset); d.setHours(h,m,0,0); if (d < reset) d.setDate(d.getDate()+1); return d; }); }
+  if (key==='gc') return utcDaily(20, n);
+  if (key.startsWith('rec:')){ const R = RECUR.find(x=>x.k===key.slice(4)); const lead = ((T.rec||{})[R.k]||{}).lead || 0; return R.occ(n).map(d => new Date(d.getTime() - lead*60e3)); }
+  if (key.startsWith('rem:')){ const c = S.custom[+key.slice(4)]; if (!c) return []; const lead = (c.lead||0)*60e3;
+    if (c.rep==='once'){ const d = nextOcc(c); return d ? [new Date(d.getTime()-lead)] : []; }
+    const [h,m] = hm(c.time), d = new Date(); d.setHours(h,m,0,0); if (c.rep==='weekly') while (d.getDay()!==c.dow) d.setDate(d.getDate()+1);
+    const out = []; for (let k=0; out.length<n && k<60; k++){ const at = new Date(d.getTime()-lead); if (at.getTime() > Date.now()) out.push(at); d.setDate(d.getDate() + (c.rep==='daily'?1:7)); } return out; }
+  return []; }
+const alarmKeys = () => ['dig:dailyDigest','dig:weeklyDigest','gc', ...RECUR.map(r=>'rec:'+r.k), ...S.custom.map((_,i)=>'rem:'+i)];
+// "Next time only": remember which occurrence it's armed for, and switch off once that has passed
+function tidyAlarms(){ const now = Date.now();
+  alarmKeys().forEach(key => { const a = alarmOf(key); if (!a) return; const on = alarmOn(key, a);
+    if (!on || a.mode !== 'next'){ a.armed = null; return; }
+    if (!a.armed){ const t = alarmTimes(key, 1)[0]; a.armed = t ? t.getTime() : null; }
+    else if (a.armed < now - 60e3){ if (key.startsWith('rem:')) a.alarm = false; else a.on = false; a.armed = null; } }); }
+const modeChips = key => { const a = alarmOf(key); if (!alarmOn(key, a)) return '';
+  const next = a.mode === 'next', when = next && a.armed ? ` · ${fmtWhen(new Date(a.armed))}` : '';
+  return `<div class="checks" style="grid-column:1/-1;margin-top:6px"><button class="chip" style="padding:4px 10px;font-size:.78rem" aria-pressed="${next}" data-amode="${key}|next">Next time only${when}</button><button class="chip" style="padding:4px 10px;font-size:.78rem" aria-pressed="${!next}" data-amode="${key}|repeat">Every time</button></div>`; };
 const fmtWhen = d => d.toLocaleString([], {weekday:'short', hour:'numeric', minute:'2-digit', hour12:S.h12});
 const fmtLeft = ms => { if (ms <= 0) return 'Ready'; const m = Math.round(ms/60e3), h = Math.floor(m/60), dd = Math.floor(h/24);
   return dd ? `${dd}d ${h%24}h` : h ? `${h}h ${String(m%60).padStart(2,'0')}m` : `${m}m`; };
@@ -1163,6 +1207,19 @@ function goals(){
     ${S.pins.length?S.pins.map(goalCard).join(''):'<div class="stubmsg"><b>No goals yet</b>Press and hold a duty, delivery client, relic job or any other row to pin it.</div>'}`;
 }
 /* ---------- Timers tab ---------- */
+function moreTimers(now){
+  const T = S.timers, tm = T.tmap || {}, tmReady = tm.at ? tm.at + 18*36e5 : null;
+  const rows = RECUR.filter(r=>r.ok()).map(r => { const key = 'rec:'+r.k, a = alarmOf(key), on = alarmOn(key, a), nx = r.occ(1)[0];
+    const sub = r.k==='jumbo' ? `Saturday drawing · <select data-jregion aria-label="Data center region">${Object.entries(JUMBO).map(([k,v])=>`<option value="${k}" ${jumboRegion()===k?'selected':''}>${v[2]}</option>`).join('')}</select>` : r.sub;
+    return `<div class="tm"><span><b>${r.n}</b><div class="sub">${sub} · next ${fmtWhen(nx)}</div></span>
+      <span class="ctrl"><span class="cd">${fmtLeft(nx-now)}</span><button class="bell" aria-pressed="${on}" data-rec="${r.k}" aria-label="Notify for ${r.n}">${BELL(on)}</button></span>
+      ${on && r.lead ? `<div class="field">Alert <select data-reclead="${r.k}" aria-label="Alert lead time">${[0,2,5,10,15].map(m=>`<option value="${m}" ${(a.lead||0)===m?'selected':''}>${m?m+' min before':'when it starts'}</option>`).join('')}</select></div>` : ''}
+      ${modeChips(key)}</div>`; }).join('');
+  const tmap = `<div class="tm"><span><b>Treasure map</b><div class="sub">One gathered map every 18 hours${tm.at ? ` · ready ${fmtWhen(new Date(tmReady))}` : ''}</div></span>
+      <span class="ctrl">${tm.at && tmReady > now ? `<span class="cd">${fmtLeft(tmReady-now)}</span>` : tm.at ? '<span class="cd ready">Ready</span>' : ''}<button class="advance" data-tmap>Gathered one</button><button class="bell" aria-pressed="${!!tm.alarm}" data-tmapalarm aria-label="Alarm when the next map is ready">${BELL(!!tm.alarm)}</button></span></div>`;
+  return `<h2 class="sh">More timers</h2><div class="card">${rows}${tmap}</div>
+    <p class="sample">A bell's "Next time only" alerts once and then switches itself off; "Every time" keeps alerting until you turn it off.</p>`;
+}
 function timers(){
   const T = S.timers, now = Date.now();
   const daily = nextUTC(15), weekly = nextUTC(8,2), gc = nextUTC(20), lv = nextLeve();
@@ -1173,6 +1230,7 @@ function timers(){
     return `<div class="tm"><span><b>${label}</b><div class="sub">Resets ${fmtWhen(when)} · in ${fmtLeft(when-now)}</div></span>
       <button class="bell" aria-pressed="${g.on}" data-dig="${key}" aria-label="Notify for ${label}">${BELL(g.on)}</button>
       ${g.on?`<div class="field">Notify me at <input type="time" value="${g.at}" data-at="${key}" aria-label="Notification time"> <span>(reset is ${localAt(key==='dailyDigest'?15:8)})</span></div>
+      ${modeChips('dig:'+key)}
       <div class="checks" style="grid-column:1/-1">${items.map(i=>`<button class="chip" style="padding:4px 10px;font-size:.78rem" aria-pressed="${g.items.includes(i)}" data-digi="${key}|${i}">${i}</button>`).join('')}</div>
       <div class="sub" style="grid-column:1/-1;margin-top:6px">Preview: "${g.items.filter(tOK).length?g.items.filter(tOK).join(' and ')+' available':'Nothing selected'}"</div>`:''}</div>`; };
   const ret = T.retainers.map((r,i)=>{ const left = r.end ? r.end-now : null;
@@ -1185,16 +1243,18 @@ function timers(){
   return `${topbar('Timers')}
     <p class="sample" style="padding-top:0">Times shown in your time zone. Only features you've unlocked appear here; Faux Hollows, for example, shows up once your story reaches it. Alerts arrive as phone notifications, even when the app is closed.</p>${notifBanner()}
     <h2 class="sh">Reset digests</h2><div class="card">${digest('dailyDigest','Daily reset',daily,DAILY)}${digest('weeklyDigest','Weekly reset',weekly,WEEKLY)}
-      <div class="tm"><span><b>Grand Company supply</b><div class="sub">Resets ${fmtWhen(gc)} · in ${fmtLeft(gc-now)}</div></span><button class="bell" aria-pressed="${T.gc}" data-gc aria-label="Notify for Grand Company">${BELL(T.gc)}</button></div></div>
+      <div class="tm"><span><b>Grand Company supply</b><div class="sub">Resets ${fmtWhen(gc)} · in ${fmtLeft(gc-now)}</div></span><button class="bell" aria-pressed="${alarmOn('gc', alarmOf('gc'))}" data-gc aria-label="Notify for Grand Company">${BELL(alarmOn('gc', alarmOf('gc')))}</button>${modeChips('gc')}</div></div>
     <h2 class="sh">Allowances</h2><div class="card">
       <div class="tm"><span><b>Leve allowances</b><div class="sub">+3 every 12 hours, max 100 · next +3 ${fmtWhen(lv)}</div></span><button class="bell" aria-pressed="${T.leves.on}" data-leve aria-label="Notify for leves">${BELL(T.leves.on)}</button>
         <div class="field">I have <input type="number" min="0" max="100" value="${lvHave}" data-lvh aria-label="Leves I have"> · notify at <input type="number" min="0" max="100" value="${T.leves.want}" data-lvw aria-label="Notify at"></div>
         <div class="sub" style="grid-column:1/-1;margin-top:4px">${ticks?`Reaches ${Math.min(100,lvHave+ticks*3)} on <b style="color:var(--ink)">${fmtWhen(leveAt)}</b>`:'Already there'}</div></div>
       ${tOK('Custom Deliveries')?`<div class="tm"><span><b>Custom Deliveries</b><div class="sub">12 a week, shared across clients · ${12-cdUsed()} left this week</div><span class="stepper" style="margin-top:6px"><button class="sbtn" data-cd="-1" aria-label="One fewer used">−</button><span class="sval" style="cursor:default">${cdUsed()}</span><button class="sbtn" data-cd="1" aria-label="One more used">+</button></span> <span class="sub">used</span></span><button class="bell" aria-pressed="${T.weeklyDigest.items.includes('Custom Deliveries')}" data-digi="weeklyDigest|Custom Deliveries" aria-label="Include in weekly digest">${BELL(T.weeklyDigest.items.includes('Custom Deliveries'))}</button></div>`:''}</div>
+    ${moreTimers(now)}
     <h2 class="sh">Your reminders <span>${S.custom.length}</span></h2>
     ${S.custom.length?`<div class="card">${S.custom.map((c,i)=>{ const nx = nextOcc(c); const t = nx ? new Date(`2000-01-01T${c.time}`).toLocaleTimeString([], {hour:'numeric',minute:'2-digit',hour12:S.h12}) : '';
       return `<div class="tm"><span><b>${esc(c.n)}</b><div class="sub">${repLabel(c)} at ${t}${c.lead?` · alert ${c.lead} min before`:''}</div></span>
         <span class="ctrl"><span class="cd ${nx&&nx-now<=0?'ready':''}">${nx ? (nx-now>0 ? fmtLeft(nx-now) : 'Passed') : '—'}</span><button class="bell" aria-pressed="${c.alarm}" data-remalarm="${i}" aria-label="Alarm for ${esc(c.n)}">${BELL(c.alarm)}</button></span>
+        ${c.rep!=='once' ? modeChips('rem:'+i) : ''}
         <div class="opts"><button class="ghost" data-delrem="${i}">Remove</button></div></div>`; }).join('')}</div>`:''}
     ${S.addingRem ? `<div class="card" style="padding:12px;margin-top:8px">
         <input class="note" id="rn" placeholder="What is it? e.g. FC Savage raid" aria-label="Reminder name">
@@ -1229,6 +1289,7 @@ function noteRecent(){
 function render(){
   if (S.focusAuto) S.focus = MSQ[S.msq].x;
   noteRecent();
+  try { tidyAlarms(); } catch(e){}
   scheduleSave();
   S.big = new Set();
   const v = S.view;
@@ -1495,7 +1556,11 @@ document.addEventListener('click', e => {
   if (ds.own){ OWN.has(ds.own) ? OWN.delete(ds.own) : OWN.add(ds.own); render(); return; }
   if (ds.dig){ S.timers[ds.dig].on = !S.timers[ds.dig].on; render(); return; }
   if (ds.digi){ const [k,i] = ds.digi.split('|'); const a = S.timers[k].items; const p = a.indexOf(i); p>=0 ? a.splice(p,1) : a.push(i); render(); return; }
-  if ('gc' in ds){ S.timers.gc = !S.timers.gc; render(); return; }
+  if ('gc' in ds){ const a = alarmOf('gc'); a.on = !a.on; render(); return; }
+  if (ds.rec){ const a = alarmOf('rec:'+ds.rec); a.on = !a.on; if (a.on && !a.mode) a.mode = 'repeat'; render(); return; }
+  if (ds.amode){ const [key, mode] = ds.amode.split('|'); const a = alarmOf(key); a.mode = mode; a.armed = null; render(); return; }
+  if ('tmap' in ds){ S.timers.tmap = {...(S.timers.tmap||{}), at: Date.now()}; toast('Next map in 18 hours'); render(); return; }
+  if ('tmapalarm' in ds){ const t = S.timers.tmap = S.timers.tmap || {}; t.alarm = !t.alarm; render(); return; }
   if ('leve' in ds){ S.timers.leves.on = !S.timers.leves.on; render(); return; }
   if (ds.send){ sheet('send:'+ds.send); return; }
   if (ds.vent){ const [i,n,h] = ds.vent.split('|'); Object.assign(S.timers.retainers[+i], {task:n, end:Date.now()+(+h)*3600e3}); closeSheet(); toast(`${S.timers.retainers[+i].n} sent · back in ${h}h`); render(); return; }
@@ -1507,10 +1572,12 @@ document.addEventListener('click', e => {
 });
 document.addEventListener('change', e => {
   const d = e.target.dataset;
-  if (d.at){ S.timers[d.at].at = e.target.value; return; }
+  if (d.at){ S.timers[d.at].at = e.target.value; S.timers[d.at].armed = null; render(); return; }
   if (d.have){ HAVE[d.have] = Math.max(0, +e.target.value||0); render(); return; }
   if (d.qt){ S.quiet[d.qt] = e.target.value; return; }
   if (d.retname){ S.timers.retainers[+d.retname].n = e.target.value.trim() || 'Retainer'; return; }
+  if ('jregion' in d){ const a = alarmOf('rec:jumbo'); a.region = e.target.value; a.armed = null; render(); return; }
+  if ('reclead' in d){ const a = alarmOf('rec:'+d.reclead); a.lead = +e.target.value; a.armed = null; render(); return; }
   if ('lvh' in d){ S.timers.leves.have = Math.max(0,Math.min(100,+e.target.value||0)); S.timers.leves.setAt = Date.now(); render(); return; }
   if ('lvw' in d){ S.timers.leves.want = Math.max(0,Math.min(100,+e.target.value||0)); render(); return; }
 });
@@ -1658,17 +1725,17 @@ function planNotifs(){
   const T = S.timers, now = Date.now(), plan = [];
   const add = (id, title, body, at) => { if (!at || at.getTime() <= now + 5000) return; const q = inQuiet(at); plan.push({id, title, body, at: q || at}); };
   const dItems = T.dailyDigest.items.filter(tOK), wItems = T.weeklyDigest.items.filter(tOK);
-  if (T.dailyDigest.on && dItems.length) dailyAt(T.dailyDigest.at, 14).forEach((d,i) => add(1000+i, 'Daily reset', dItems.join(', ') + ' available', d));
-  if (T.weeklyDigest.on && wItems.length){ const r = nextUTC(8,2); const [h,m] = hm(T.weeklyDigest.at);
-    for (let i=0;i<4;i++){ const reset = new Date(r.getTime() + i*7*864e5); const d = new Date(reset); d.setHours(h,m,0,0); if (d < reset) d.setDate(d.getDate()+1); add(1100+i, 'Weekly reset', wItems.join(', ') + ' available', d); } }
-  if (T.gc && tOK('Grand Company')) utcDaily(20, 14).forEach((d,i) => add(1200+i, 'Grand Company', 'Supply and provisioning missions have reset', d));
+  tidyAlarms();
+  const times = (key, n) => { const a = alarmOf(key); if (!alarmOn(key, a)) return []; if (a.mode === 'next') return a.armed ? [new Date(a.armed)] : alarmTimes(key, 1); return alarmTimes(key, n); };
+  if (dItems.length) times('dig:dailyDigest', 14).forEach((d,i) => add(1000+i, 'Daily reset', dItems.join(', ') + ' available', d));
+  if (wItems.length) times('dig:weeklyDigest', 4).forEach((d,i) => add(1100+i, 'Weekly reset', wItems.join(', ') + ' available', d));
+  if (tOK('Grand Company')) times('gc', 14).forEach((d,i) => add(1200+i, 'Grand Company', 'Supply and provisioning missions have reset', d));
+  RECUR.forEach((r, ri) => { if (r.ok()) times('rec:'+r.k, RECN[r.k]).forEach((d,i) => add(3000 + ri*50 + i, r.n, r.body, d)); });
+  const tm = T.tmap; if (tm && tm.alarm && tm.at) add(1600, 'Treasure map', 'You can gather another treasure map', new Date(tm.at + 18*36e5));
   if (T.leves.on){ const have = leveNow(), ticks = Math.max(0, Math.ceil((T.leves.want - have)/3)); if (ticks){ const at = new Date(nextLeve().getTime() + (ticks-1)*432e5); add(1300, 'Leve allowances', `You have ${Math.min(100, have+ticks*3)} allowances`, at); } }
   T.retainers.forEach((r,i) => { if (r.active && r.alarm && r.end) add(1400+i, `${r.n} is back`, r.task ? `${r.task} is done` : 'Venture complete', new Date(r.end)); });
   if (T.squadron.alarm && T.squadron.end) add(1500, 'Adventurer Squadron', 'Your squadron is back from its command mission', new Date(T.squadron.end));
-  S.custom.forEach((c,i) => { if (!c.alarm) return; const [h,m] = hm(c.time), lead = (c.lead||0)*60e3, body = c.lead ? `Starts in ${c.lead} min` : 'Starting now';
-    if (c.rep==='once'){ const d = nextOcc(c); if (d) add(2000+i*20, c.n, body, new Date(d.getTime()-lead)); return; }
-    const d = new Date(); d.setHours(h,m,0,0); const step = c.rep==='daily' ? 1 : 7; if (c.rep==='weekly') while (d.getDay()!==c.dow) d.setDate(d.getDate()+1);
-    for (let k=0, n=0; n < (c.rep==='daily'?14:4) && k < 40; k++){ const at = new Date(d.getTime()-lead); if (at.getTime() > now){ add(2000+i*20+n, c.n, body, at); n++; } d.setDate(d.getDate()+step); } });
+  S.custom.forEach((c,i) => { const body = c.lead ? `Starts in ${c.lead} min` : 'Starting now'; times('rem:'+i, c.rep==='daily'?14:4).forEach((d,k) => add(2000+i*20+k, c.n, body, d)); });
   return plan;
 }
 async function syncNotifs(force){

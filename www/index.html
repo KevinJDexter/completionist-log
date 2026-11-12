@@ -932,9 +932,9 @@ function craft(){
     const grid = `<div class="cgrid" style="grid-template-columns:44px repeat(${cols.length},minmax(0,1fr))"><span></span>${cols.map(c=>`<span class="ch">${c}</span>`).join('')}
       ${jobs.map(j=>`<span class="job">${j}<small>Lv ${CLV[j]}</small></span>${cols.map((c,i)=>{ const start = i<br.length ? br[i] : CAP[x]; const key = `${seg}:${x}:${j}:${i}`; const low = start > CLV[j];
         const pk = S.pick && S.pick.id===`log:${seg}:${x}`; const tg = (S.targets[`log:${seg}:${x}`]||{}).cells||[];
-        return `<button class="cell ${C.has(key)?'on':''} ${pk&&S.pick.set.has(key)?'pick':''} ${!pk&&tg.includes(key)?'tgt':''}" ${low&&!pk?'disabled':''} data-${pk?'tcell':'c'}="${key}" aria-label="${j} ${i<br.length?'level '+start+' to '+(start+4):c}" aria-pressed="${C.has(key)}">${seg==='furn'?'':(((DATA.CRAFTN[j]||{})[x]||[])[i] ?? '')}</button>`; }).join('')}`).join('')}</div>`;
+        return `<button class="cell ${C.has(key)?'on':''} ${pk&&S.pick.set.has(key)?'pick':''} ${!pk&&tg.includes(key)?'tgt':''}" ${low&&!pk?'disabled':''} data-${pk?'tcell':'c'}="${key}" aria-label="${j} ${i<br.length?'level '+start+' to '+(start+4):c}" aria-pressed="${C.has(key)}">${(((seg==='furn'?DATA.CRAFTNF:DATA.CRAFTN)[j]||{})[x]||[])[i] ?? ''}</button>`; }).join('')}`).join('')}</div>`;
     const done = jobs.reduce((s,j)=>s+cols.filter((_,i)=>C.has(`${seg}:${x}:${j}:${i}`)).length,0);
-    const nItems = seg==='furn' ? 0 : jobs.reduce((s,j)=>s+((DATA.CRAFTN[j]||{})[x]||[]).reduce((a,b)=>a+b,0),0);
+    const nItems = jobs.reduce((s,j)=>s+(((seg==='furn'?DATA.CRAFTNF:DATA.CRAFTN)[j]||{})[x]||[]).reduce((a,b)=>a+b,0),0);
     body = `<h2 class="sh">${{recipes:'Crafting log',furn:'Furnishing recipes',gather:'Gathering log'}[seg]} <span>${done} of ${jobs.length*cols.length} brackets</span></h2>
       <div class="card" style="padding:10px;overflow-x:auto">${grid}</div>
       <p class="sample">${nItems?`${fmtN(nItems)} ${seg==='gather'?'gathering log items':'recipes'} in this expansion; each square shows how many are in that bracket. `:''}Each column is a 5-level bracket of the in-game log (the number is its top level)${seg==='recipes'?'; ★ is star recipes and master books':seg==='gather'?'; U is unspoiled and legendary nodes':''}. Greyed cells are above that job's level.</p>`;
@@ -1892,8 +1892,8 @@ function gameImport(d){
   const cleared = new Set((d.duties||[]).map(x => 'd'+x));
   DUTIES.forEach(du => { if (!cleared.has(du.id)) return; if (!du.turns && !du.done){ du.done = true; res.duties++; } if (du.msq) bump(du.msq); });
   // crafting log: a bracket is done when every recipe in it is done
-  Object.entries(d.recipes||{}).forEach(([job, perX]) => Object.entries(perX).forEach(([x, row]) => row.forEach(([dn, tot], i) => {
-    const k = `recipes:${x}:${job}:${i}`; if (tot > 0 && dn >= tot && !C.has(k)){ C.add(k); res.brackets++; } })));
+  [['recipes', d.recipes], ['furn', d.furn]].forEach(([seg, src]) => Object.entries(src||{}).forEach(([job, perX]) => Object.entries(perX).forEach(([x, row]) => row.forEach(([dn, tot], i) => {
+    const k = `${seg}:${x}:${job}:${i}`; if (tot > 0 && dn >= tot && !C.has(k)){ C.add(k); res.brackets++; } }))));
   // collections
   addOwn(d.orchestrion, 'Orchestrion rolls'); addOwn(d.cards, 'Triple Triad cards'); addOwn(d.mounts, 'Mounts'); addOwn(d.minions, 'Minions');
   addOwn(d.emotes, 'Emotes'); addOwn(d.facewear, 'Facewear'); addOwn(d.accessories, 'Fashion accessories');

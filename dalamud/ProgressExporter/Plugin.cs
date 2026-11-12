@@ -277,7 +277,7 @@ public sealed unsafe class Plugin : IDalamudPlugin
 
         // crafting log: done/total for each 5-level bracket, plus star and master recipes at the cap
         var recipes = new Dictionary<string, Dictionary<string, int[][]>>();
-        var all = new List<(int job, int lv, bool star, bool done)>();
+        var all = new List<(int job, int lv, bool star, bool done, bool furn)>();
         foreach (var r in DataManager.GetExcelSheet<Recipe>())
         {
             if (r.ItemResult.RowId == 0 || !r.RecipeLevelTable.IsValid) continue;
@@ -285,26 +285,34 @@ public sealed unsafe class Plugin : IDalamudPlugin
             if (job < 0 || job >= CraftAbbr.Length) continue;
             var lt = r.RecipeLevelTable.Value;
             bool star = lt.Stars > 0 || r.SecretRecipeBook.RowId != 0;
-            all.Add((job, lt.ClassJobLevel, star, QuestManager.IsRecipeComplete(r.RowId)));
+            var cat = r.ItemResult.IsValid ? r.ItemResult.Value.ItemUICategory.RowId : 0;
+            bool furn = cat == 57 || cat == 95 || (cat >= 65 && cat <= 80);
+            all.Add((job, lt.ClassJobLevel, star, QuestManager.IsRecipeComplete(r.RowId), furn));
         }
-        for (int j = 0; j < CraftAbbr.Length; j++)
+        var furnOut = new Dictionary<string, Dictionary<string, int[][]>>();
+        foreach (var furnPass in new[] { false, true })
         {
-            var mine = all.Where(a => a.job == j).ToList();
-            var perX = new Dictionary<string, int[][]>();
-            foreach (var (x, starts) in Brackets)
+            var target = furnPass ? furnOut : recipes;
+            for (int j = 0; j < CraftAbbr.Length; j++)
             {
-                var row = new List<int[]>();
-                foreach (var s in starts)
+                var mine = all.Where(a => a.job == j && a.furn == furnPass).ToList();
+                var perX = new Dictionary<string, int[][]>();
+                foreach (var (x, starts) in Brackets)
                 {
-                    var b = mine.Where(a => !a.star && a.lv >= s && a.lv <= s + 4).ToList();
-                    row.Add(new[] { b.Count(a => a.done), b.Count });
+                    var row = new List<int[]>();
+                    foreach (var st0 in starts)
+                    {
+                        var b = mine.Where(a => !a.star && a.lv >= st0 && a.lv <= st0 + 4).ToList();
+                        row.Add(new[] { b.Count(a => a.done), b.Count });
+                    }
+                    var st = mine.Where(a => a.star && a.lv == Cap[x]).ToList();
+                    row.Add(new[] { st.Count(a => a.done), st.Count });
+                    perX[x] = row.ToArray();
                 }
-                var st = mine.Where(a => a.star && a.lv == Cap[x]).ToList();
-                row.Add(new[] { st.Count(a => a.done), st.Count });
-                perX[x] = row.ToArray();
+                target[CraftAbbr[j]] = perX;
             }
-            recipes[CraftAbbr[j]] = perX;
         }
+        outp["furn"] = furnOut;
         outp["recipes"] = recipes;
 
         // collections, by name (plain loops: unlock checks go through game pointers)
@@ -346,6 +354,7 @@ public sealed unsafe class Plugin : IDalamudPlugin
         outp["blu"] = blu;
         CollectMore(outp);
         foreach (var (key, _) in Categories) if (!Config.Shares(key)) outp.Remove(key);
+        if (!Config.Shares("recipes")) outp.Remove("furn");
         return outp;
     }
 }
